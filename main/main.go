@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
-	"math"
 	"os"
 	"strconv"
 )
@@ -41,7 +40,7 @@ func day1() {
 	for scanner.Scan() {
 		var module int64
 		module, _ = strconv.ParseInt(scanner.Text(), 10, 32)
-		sum += int64(math.Floor(float64(module / 3.0))) - 2
+		sum += module / 3.0 - 2
 		modules = append(modules, module)
 	}
 
@@ -52,7 +51,7 @@ func day1() {
 	sum = 0
 	for i, _ := range modules {
 		for newFuel = modules[i]; newFuel > 0; {
-			newFuel = int64(math.Floor(float64(newFuel / 3.0))) - 2
+			newFuel = newFuel / 3 - 2
 			if newFuel > 0 {
 				sum += newFuel
 			}
@@ -101,7 +100,7 @@ func day2() {
 			codes[2] = verb
 			pos0 = runDay2Comp(codes)
 			if pos0 == 19690720 {
-				fmt.Printf("Noun: %d Verb: %d Result: %d\n", noun, verb, (100 * noun + verb))
+				fmt.Printf("Noun: %d Verb: %d Result: %d\n", noun, verb, 100 * noun + verb)
 				noun = 99
 				verb = 99
 			}
