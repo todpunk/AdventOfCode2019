@@ -60,7 +60,7 @@ func day1() {
 	fmt.Printf("New Total fuel required (calculated per module): %d\n", sum)
 }
 
-func runDay2Comp(codes []int64 ) (pos0 int64 ) {
+func runIntComp(codes []int64 ) (pos0 int64 ) {
 	for i := 0; i < len(codes)-1; i += 4 {
 		opcode := codes[i]
 		switch opcode{
@@ -90,7 +90,7 @@ func day2() {
 	fmt.Println(codes)
 	codes[1] = 12
 	codes[2] = 2
-	fmt.Printf("Position 0: %d\n", runDay2Comp(codes))
+	fmt.Printf("Position 0: %d\n", runIntComp(codes))
 
 	var pos0, noun, verb int64
 	for noun = 1; noun < 100; noun++ {
@@ -98,7 +98,7 @@ func day2() {
 			copy(codes, rawcodes)
 			codes[1] = noun
 			codes[2] = verb
-			pos0 = runDay2Comp(codes)
+			pos0 = runIntComp(codes)
 			if pos0 == 19690720 {
 				fmt.Printf("Noun: %d Verb: %d Result: %d\n", noun, verb, 100 * noun + verb)
 				noun = 99
