@@ -186,6 +186,39 @@ func day3() {
 	fmt.Println(totalSteps)
 }
 
-func day4() {
+func isPotentialPassword(password int64) (correct bool){
+	var strPass string = strconv.FormatInt(password, 10)
+	var doubleMap = map[int32]int64{}
+	var doublesFound int64 = 0
 
+	var last int64 = 0
+	for _, c := range strPass {
+		var current, _ = strconv.ParseInt(strconv.FormatInt(int64(c), 10), 10, 32)
+		if last > current {
+			return false
+		}
+		doubleMap[c] += 1
+		// This if statement is only useful for part 2
+		if doubleMap[c] == 3 {
+			doublesFound--
+		}
+		if doubleMap[c] == 2 {
+			doublesFound++
+		}
+		last = current
+	}
+	// If we have made it this far, the only criteria left is if there are doubles somewhere in there
+	return doublesFound > 0
+}
+
+func day4() {
+	var possibility, potentials int64
+	potentials = 0
+
+	for possibility = 108457; possibility <= 562041; possibility++ {
+		if isPotentialPassword(possibility) {
+			potentials++
+		}
+	}
+	fmt.Println(potentials)
 }
