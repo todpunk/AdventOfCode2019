@@ -25,6 +25,8 @@ func main() {
 		day2()
 	case 3:
 		day3()
+	case 4:
+		day4()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -182,4 +184,8 @@ func day3() {
 	}
 	fmt.Println(distance)
 	fmt.Println(totalSteps)
+}
+
+func day4() {
+
 }
