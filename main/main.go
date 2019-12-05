@@ -84,6 +84,7 @@ func setParamWithMode(codes []int64, mode int64, location int64, value int64) (r
 	case 0:
 		codes[codes[location]] = value
 	case 1:
+		// Yes, I know this should never occur.  But it wasn't called out as explicitly not able to occur.
 		codes[location] = value
 	default:
 		fmt.Printf("Can not set with mode %d as it is unknown at location %d\n", mode, location)
@@ -106,31 +107,72 @@ func runIntComp(codes []int64 ) (pos0 int64 ) {
 		case 1:
 			a := getParamValueWithMode(codes, mode1, i+1)
 			b := getParamValueWithMode(codes, mode2, i+2)
-			rez := setParamWithMode(codes, mode3, i+3, a + b)
-			if rez == -1 {
+			result := setParamWithMode(codes, mode3, i+3, a + b)
+			if result == -1 {
 				i = int64(len(codes))
 			}
 			i += 4
 		case 2:
 			a := getParamValueWithMode(codes, mode1, i+1)
 			b := getParamValueWithMode(codes, mode2, i+2)
-			rez := setParamWithMode(codes, mode3, i+3, a * b)
-			if rez == -1 {
+			result := setParamWithMode(codes, mode3, i+3, a * b)
+			if result == -1 {
 				i = int64(len(codes))
 			}
 			i += 4
 		case 3:
 			fmt.Print("Enter number: ")
 			var input int64 = 0
-			fmt.Scanf("%d", &input)
-			rez := setParamWithMode(codes, mode1, i+1, input)
-			if rez == -1 {
+			_, _ = fmt.Scanf("%d", &input)
+			fmt.Println("Input was:", input)
+			result := setParamWithMode(codes, mode1, i+1, input)
+			if result == -1 {
 				i = int64(len(codes))
 			}
 			i += 2
 		case 4:
 			fmt.Printf("%d\n", getParamValueWithMode(codes, mode1, i+1))
 			i += 2
+		case 5:
+			first := getParamValueWithMode(codes, mode1, i+1)
+			if first != 0 {
+				i = getParamValueWithMode(codes, mode2, i+2)
+			} else {
+				i += 3
+			}
+		case 6:
+			first := getParamValueWithMode(codes, mode1, i+1)
+			if first == 0 {
+				i = getParamValueWithMode(codes, mode2, i+2)
+			} else {
+				i += 3
+			}
+		case 7:
+			first := getParamValueWithMode(codes, mode1, i+1)
+			second := getParamValueWithMode(codes, mode2, i+2)
+			var result int64
+			if first < second {
+				result = setParamWithMode(codes, mode3, i+3, 1)
+			} else {
+				result = setParamWithMode(codes, mode3, i+3, 0)
+			}
+			i += 4
+			if result == -1 {
+				i = int64(len(codes))
+			}
+		case 8:
+			first := getParamValueWithMode(codes, mode1, i+1)
+			second := getParamValueWithMode(codes, mode2, i+2)
+			var result int64
+			if first == second {
+				result = setParamWithMode(codes, mode3, i+3, 1)
+			} else {
+				result = setParamWithMode(codes, mode3, i+3, 0)
+			}
+			i += 4
+			if result == -1 {
+				i = int64(len(codes))
+			}
 		default:
 			i = int64(len(codes))
 			fmt.Printf("This went poorly, opcode: %d at %d\n", opcode, i)
