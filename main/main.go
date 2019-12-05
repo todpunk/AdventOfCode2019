@@ -27,6 +27,8 @@ func main() {
 		day3()
 	case 4:
 		day4()
+	case 5:
+		day5()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -221,4 +223,7 @@ func day4() {
 		}
 	}
 	fmt.Println(potentials)
+}
+
+func day5() {
 }
