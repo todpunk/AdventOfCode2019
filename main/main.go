@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -29,6 +30,8 @@ func main() {
 		day4()
 	case 5:
 		day5()
+	case 6:
+		day6()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -322,4 +325,62 @@ func day5() {
 	var codes = make([]int64, len(rawcodes))
 	copy(codes, rawcodes)
 	runIntComp(codes)
+}
+
+type orbit struct {
+	orbiting  string
+	centering []string
+}
+
+func (n *orbit) SetOrbiting(value string) {
+	n.orbiting = value
+}
+
+func (n *orbit) AppendCentering(value string) {
+	fmt.Println("n.orbiting", n.orbiting, "n.centering", n.centering, value)
+	n.centering = append(n.centering, value)
+}
+
+func getOrbitMapDistances(orbits map[string]orbit, center string, depth int64) (direct int64, indirect int64) {
+	direct = int64(len(orbits[center].centering))
+	indirect = depth * direct
+	for _, item := range orbits[center].centering {
+		newDirect, newIndirect := getOrbitMapDistances(orbits, item, depth+1)
+		direct += newDirect
+		indirect += newIndirect
+	}
+
+	return direct, indirect
+}
+
+func day6() {
+	file, err := os.Open("./day6-input.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	var orbits = map[string]orbit{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var rawOrbit string
+		rawOrbit = scanner.Text()
+		orbitRelationship := strings.Split(rawOrbit,")")
+		if _, ok := orbits[orbitRelationship[0]]; ! ok {
+			orbits[orbitRelationship[0]] = orbit{"", []string{}}
+		}
+		if _, ok := orbits[orbitRelationship[1]]; ! ok {
+			orbits[orbitRelationship[1]] = orbit{orbitRelationship[0], []string{}}
+		} else {
+			thisOrbit := orbits[orbitRelationship[1]]
+			thisOrbit.SetOrbiting(orbitRelationship[0])
+		}
+		thisOrbit := orbits[orbitRelationship[0]]
+		thisOrbit.AppendCentering(orbitRelationship[1])
+		orbits[orbitRelationship[0]] = thisOrbit
+	}
+
+	direct, indirect := getOrbitMapDistances(orbits, "COM", 0)
+	fmt.Println(orbits)
+	fmt.Println("Total orbits:", direct + indirect)
 }
