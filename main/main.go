@@ -337,7 +337,6 @@ func (n *orbit) SetOrbiting(value string) {
 }
 
 func (n *orbit) AppendCentering(value string) {
-	fmt.Println("n.orbiting", n.orbiting, "n.centering", n.centering, value)
 	n.centering = append(n.centering, value)
 }
 
@@ -374,6 +373,7 @@ func day6() {
 		} else {
 			thisOrbit := orbits[orbitRelationship[1]]
 			thisOrbit.SetOrbiting(orbitRelationship[0])
+			orbits[orbitRelationship[1]] = thisOrbit
 		}
 		thisOrbit := orbits[orbitRelationship[0]]
 		thisOrbit.AppendCentering(orbitRelationship[1])
@@ -381,6 +381,34 @@ func day6() {
 	}
 
 	direct, indirect := getOrbitMapDistances(orbits, "COM", 0)
-	fmt.Println(orbits)
 	fmt.Println("Total orbits:", direct + indirect)
+
+	var youBackwards = map[string]int64{}
+	var i int64
+	var current string
+	var found bool
+
+	found = true
+	current = "YOU"
+	for i = -1; found; i++ {
+		fmt.Println("Current:", current)
+		youBackwards[current] = i
+		current = orbits[current].orbiting
+		if current == "COM" {
+			found = false
+		}
+	}
+	fmt.Println("Transfers from COM", youBackwards["COM"])
+
+	current = "SAN"
+	found = true
+	var total int64
+	for i = 0; found; i++ {
+		current = orbits[current].orbiting
+		if _, ok := youBackwards[current]; ok {
+			total = youBackwards[current] + i
+			found = false
+		}
+	}
+	fmt.Println("Total orbit transfers", total)
 }
