@@ -32,6 +32,8 @@ func main() {
 		day5()
 	case 6:
 		day6()
+	case 7:
+		day7()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -96,7 +98,21 @@ func setParamWithMode(codes []int64, mode int64, location int64, value int64) (r
 	return 0
 }
 
-func runIntComp(codes []int64 ) (pos0 int64 ) {
+type inputGatherer func() int64
+type outputHandler func(int64)
+
+func gatherInputFromUser() (result int64) {
+	fmt.Print("Enter number: ")
+	_, _ = fmt.Scanf("%d", &result)
+	fmt.Println("Input was:", result)
+	return result
+}
+
+func printOutputHandler(output int64) {
+	fmt.Printf("%d\n", output)
+}
+
+func runIntComp(codes []int64, gatherer inputGatherer, outputFunc outputHandler) (pos0 int64 ) {
 	var i int64
 
 	for i = 0; i < int64(len(codes)-1);  {
@@ -124,17 +140,14 @@ func runIntComp(codes []int64 ) (pos0 int64 ) {
 			}
 			i += 4
 		case 3:
-			fmt.Print("Enter number: ")
-			var input int64 = 0
-			_, _ = fmt.Scanf("%d", &input)
-			fmt.Println("Input was:", input)
+			input := gatherer()
 			result := setParamWithMode(codes, mode1, i+1, input)
 			if result == -1 {
 				i = int64(len(codes))
 			}
 			i += 2
 		case 4:
-			fmt.Printf("%d\n", getParamValueWithMode(codes, mode1, i+1))
+			outputFunc(getParamValueWithMode(codes, mode1, i+1))
 			i += 2
 		case 5:
 			first := getParamValueWithMode(codes, mode1, i+1)
@@ -185,22 +198,22 @@ func runIntComp(codes []int64 ) (pos0 int64 ) {
 }
 
 func day2() {
-	rawcodes := []int64{1,0,0,3,1,1,2,3,1,3,4,3,1,5,0,3,2,9,1,19,1,19,5,23,1,23,6,27,2,9,27,31,1,5,31,35,1,35,10,39,1,39,10,43,2,43,9,47,1,6,47,51,2,51,6,55,1,5,55,59,2,59,10,63,1,9,63,67,1,9,67,71,2,71,6,75,1,5,75,79,1,5,79,83,1,9,83,87,2,87,10,91,2,10,91,95,1,95,9,99,2,99,9,103,2,10,103,107,2,9,107,111,1,111,5,115,1,115,2,119,1,119,6,0,99,2,0,14,0}
-	var codes = make([]int64, len(rawcodes))
-	copy(codes, rawcodes)
-	fmt.Println(rawcodes)
+	rawCodes := []int64{1,0,0,3,1,1,2,3,1,3,4,3,1,5,0,3,2,9,1,19,1,19,5,23,1,23,6,27,2,9,27,31,1,5,31,35,1,35,10,39,1,39,10,43,2,43,9,47,1,6,47,51,2,51,6,55,1,5,55,59,2,59,10,63,1,9,63,67,1,9,67,71,2,71,6,75,1,5,75,79,1,5,79,83,1,9,83,87,2,87,10,91,2,10,91,95,1,95,9,99,2,99,9,103,2,10,103,107,2,9,107,111,1,111,5,115,1,115,2,119,1,119,6,0,99,2,0,14,0}
+	var codes = make([]int64, len(rawCodes))
+	copy(codes, rawCodes)
+	fmt.Println(rawCodes)
 	fmt.Println(codes)
 	codes[1] = 12
 	codes[2] = 2
-	fmt.Printf("Position 0: %d\n", runIntComp(codes))
+	fmt.Printf("Position 0: %d\n", runIntComp(codes, gatherInputFromUser, printOutputHandler))
 
 	var pos0, noun, verb int64
 	for noun = 1; noun < 100; noun++ {
 		for verb = 1; verb < 100; verb++ {
-			copy(codes, rawcodes)
+			copy(codes, rawCodes)
 			codes[1] = noun
 			codes[2] = verb
-			pos0 = runIntComp(codes)
+			pos0 = runIntComp(codes, gatherInputFromUser, printOutputHandler)
 			if pos0 == 19690720 {
 				fmt.Printf("Noun: %d Verb: %d Result: %d\n", noun, verb, 100 * noun + verb)
 				noun = 99
@@ -324,7 +337,7 @@ func day5() {
 	rawcodes := []int64{3,225,1,225,6,6,1100,1,238,225,104,0,1101,48,82,225,102,59,84,224,1001,224,-944,224,4,224,102,8,223,223,101,6,224,224,1,223,224,223,1101,92,58,224,101,-150,224,224,4,224,102,8,223,223,1001,224,3,224,1,224,223,223,1102,10,89,224,101,-890,224,224,4,224,1002,223,8,223,1001,224,5,224,1,224,223,223,1101,29,16,225,101,23,110,224,1001,224,-95,224,4,224,102,8,223,223,1001,224,3,224,1,223,224,223,1102,75,72,225,1102,51,8,225,1102,26,16,225,1102,8,49,225,1001,122,64,224,1001,224,-113,224,4,224,102,8,223,223,1001,224,3,224,1,224,223,223,1102,55,72,225,1002,174,28,224,101,-896,224,224,4,224,1002,223,8,223,101,4,224,224,1,224,223,223,1102,57,32,225,2,113,117,224,101,-1326,224,224,4,224,102,8,223,223,101,5,224,224,1,223,224,223,1,148,13,224,101,-120,224,224,4,224,1002,223,8,223,101,7,224,224,1,223,224,223,4,223,99,0,0,0,677,0,0,0,0,0,0,0,0,0,0,0,1105,0,99999,1105,227,247,1105,1,99999,1005,227,99999,1005,0,256,1105,1,99999,1106,227,99999,1106,0,265,1105,1,99999,1006,0,99999,1006,227,274,1105,1,99999,1105,1,280,1105,1,99999,1,225,225,225,1101,294,0,0,105,1,0,1105,1,99999,1106,0,300,1105,1,99999,1,225,225,225,1101,314,0,0,106,0,0,1105,1,99999,8,677,226,224,102,2,223,223,1006,224,329,101,1,223,223,107,677,677,224,1002,223,2,223,1006,224,344,101,1,223,223,8,226,677,224,102,2,223,223,1006,224,359,101,1,223,223,107,226,226,224,102,2,223,223,1005,224,374,1001,223,1,223,1108,677,226,224,1002,223,2,223,1006,224,389,101,1,223,223,107,677,226,224,102,2,223,223,1006,224,404,1001,223,1,223,1107,226,677,224,1002,223,2,223,1006,224,419,1001,223,1,223,108,677,677,224,102,2,223,223,1005,224,434,1001,223,1,223,1008,677,226,224,1002,223,2,223,1006,224,449,1001,223,1,223,7,226,677,224,1002,223,2,223,1006,224,464,1001,223,1,223,1007,677,677,224,102,2,223,223,1005,224,479,1001,223,1,223,1007,226,226,224,1002,223,2,223,1005,224,494,1001,223,1,223,108,226,226,224,1002,223,2,223,1005,224,509,1001,223,1,223,1007,226,677,224,1002,223,2,223,1006,224,524,101,1,223,223,1107,677,677,224,102,2,223,223,1005,224,539,101,1,223,223,1107,677,226,224,102,2,223,223,1005,224,554,1001,223,1,223,108,677,226,224,1002,223,2,223,1006,224,569,1001,223,1,223,1108,226,677,224,1002,223,2,223,1006,224,584,101,1,223,223,8,677,677,224,1002,223,2,223,1006,224,599,1001,223,1,223,1008,226,226,224,102,2,223,223,1006,224,614,101,1,223,223,7,677,677,224,1002,223,2,223,1006,224,629,101,1,223,223,1008,677,677,224,102,2,223,223,1005,224,644,101,1,223,223,7,677,226,224,1002,223,2,223,1005,224,659,101,1,223,223,1108,226,226,224,102,2,223,223,1006,224,674,1001,223,1,223,4,223,99,226}
 	var codes = make([]int64, len(rawcodes))
 	copy(codes, rawcodes)
-	runIntComp(codes)
+	runIntComp(codes, gatherInputFromUser, printOutputHandler)
 }
 
 type orbit struct {
@@ -411,4 +424,70 @@ func day6() {
 		}
 	}
 	fmt.Println("Total orbit transfers", total)
+}
+
+func generateCombinations(initial []int64) (allCombos [][]int64) {
+	var rc func([]int64, int64)
+	rc = func(a []int64, k int64) {
+		if k == int64(len(a)) {
+			allCombos = append(allCombos, append([]int64{}, a...))
+		} else {
+			for i := k; i < int64(len(initial)); i++ {
+				a[k], a[i] = a[i], a[k]
+				rc(a, k+1)
+				a[k], a[i] = a[i], a[k]
+			}
+		}
+	}
+	rc(initial, 0)
+
+	return allCombos
+}
+
+func generatePrimedIOHandlers(inputs []int64) (forInput inputGatherer, forOutput outputHandler, getLastOutput func() int64) {
+	var current int64
+	var lastOutput int64
+	forInput = func() (nextInput int64){
+		nextInput = inputs[current]
+		current++
+		return nextInput
+	}
+	forOutput = func(output int64) {
+		lastOutput = output
+		if current < int64(len(inputs)) {
+			fmt.Println("Before", inputs)
+			inputs = append(inputs[:current+1], append([]int64{output}, inputs[current+1:]...)...)
+			fmt.Println("After", inputs)
+		}
+	}
+	getLastOutput = func() int64 {
+		return lastOutput
+	}
+	return forInput, forOutput, getLastOutput
+}
+
+func day7() {
+	rawCodes := []int64{3,8,1001,8,10,8,105,1,0,0,21,46,55,68,89,110,191,272,353,434,99999,3,9,1002,9,3,9,1001,9,3,9,102,4,9,9,101,4,9,9,1002,9,5,9,4,9,99,3,9,102,3,9,9,4,9,99,3,9,1001,9,5,9,102,4,9,9,4,9,99,3,9,1001,9,5,9,1002,9,2,9,1001,9,5,9,1002,9,3,9,4,9,99,3,9,101,3,9,9,102,3,9,9,101,3,9,9,1002,9,4,9,4,9,99,3,9,1001,9,1,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,1001,9,2,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,2,9,4,9,99,3,9,102,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,1,9,9,4,9,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,99,3,9,101,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,2,9,9,4,9,99,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,1,9,4,9,99,3,9,1002,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,1,9,9,4,9,3,9,101,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,99}
+	var codes = make([]int64, len(rawCodes))
+
+	allInputs := generateCombinations([]int64{0,1,2,3,4})
+	fmt.Println(allInputs)
+	bestInput := []int64{0,1,2,3,4}
+	var largestResult int64
+	for _, inputSet := range allInputs {
+		var potentalBestInput = make([]int64, len(inputSet))
+		copy(potentalBestInput, inputSet)
+		inputSet = append(inputSet[:1], append([]int64{0}, inputSet[1:]...)...)
+		gatherer, outputFunc, getLastOutput := generatePrimedIOHandlers(inputSet)
+		copy(codes, rawCodes)
+
+		for i := 0; i < 5; i++ {
+			runIntComp(codes, gatherer, outputFunc)
+		}
+		if getLastOutput() > largestResult {
+			largestResult = getLastOutput()
+			bestInput = potentalBestInput
+		}
+	}
+	fmt.Println("Best input:", bestInput, "Value:", largestResult)
 }
