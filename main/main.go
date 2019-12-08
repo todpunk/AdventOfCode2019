@@ -650,11 +650,14 @@ func day8() {
 	}
 
 	for row := 0; row < height; row++ {
-		newRow := make([]int, width)
 		for x := 0; x < width; x++ {
-			newRow[x] = finalLayer[width*row+x]
+			if finalLayer[width*row+x] == 1 {
+				fmt.Print("■")
+			} else {
+				fmt.Print(" ")
+			}
 		}
-		fmt.Println(newRow)
+		fmt.Print("\n")
 	}
 }
 
