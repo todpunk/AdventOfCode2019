@@ -34,6 +34,8 @@ func main() {
 		day6()
 	case 7:
 		day7()
+	case 8:
+		day8()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -426,7 +428,7 @@ func day6() {
 	fmt.Println("Total orbit transfers", total)
 }
 
-func generateCombinations(initial []int64) (allCombos [][]int64) {
+func generateCombinationsOfInts(initial []int64) (allCombos [][]int64) {
 	var rc func([]int64, int64)
 	rc = func(a []int64, k int64) {
 		if k == int64(len(a)) {
@@ -497,7 +499,7 @@ func day7() {
 	var bestInput []int64
 	var largestResult int64
 
-	allInputs = generateCombinations([]int64{0,1,2,3,4})
+	allInputs = generateCombinationsOfInts([]int64{0,1,2,3,4})
 	bestInput = []int64{0,1,2,3,4}
 	for _, inputSet := range allInputs {
 		var potentialBestInputs = make([]int64, len(inputSet))
@@ -517,7 +519,7 @@ func day7() {
 	fmt.Println("Best input:", bestInput, "Value:", largestResult)
 
 	// testInput := []int64{3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5}
-	allInputs = generateCombinations([]int64{5,6,7,8,9})
+	allInputs = generateCombinationsOfInts([]int64{5,6,7,8,9})
 	bestInput = []int64{5,6,7,8,9}
 	largestResult = 0
 	for _, inputSet := range allInputs {
@@ -564,4 +566,8 @@ func day7() {
 		}
 	}
 	fmt.Println("Best feedback input:", bestInput, "Value:", largestResult)
+}
+
+func day8() {
+
 }
