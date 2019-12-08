@@ -652,7 +652,7 @@ func day8() {
 	for row := 0; row < height; row++ {
 		for x := 0; x < width; x++ {
 			if finalLayer[width*row+x] == 1 {
-				fmt.Print("■")
+				fmt.Print("█")
 			} else {
 				fmt.Print(" ")
 			}
