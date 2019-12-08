@@ -455,9 +455,7 @@ func generatePrimedIOHandlers(inputs []int64) (forInput inputGatherer, forOutput
 	forOutput = func(output int64) {
 		lastOutput = output
 		if current < int64(len(inputs)) {
-			fmt.Println("Before", inputs)
 			inputs = append(inputs[:current+1], append([]int64{output}, inputs[current+1:]...)...)
-			fmt.Println("After", inputs)
 		}
 	}
 	getLastOutput = func() int64 {
@@ -466,17 +464,44 @@ func generatePrimedIOHandlers(inputs []int64) (forInput inputGatherer, forOutput
 	return forInput, forOutput, getLastOutput
 }
 
+func generateContinuousIOHandlers(phase int64, inputChan chan int64, outputChan chan int64, ampNum int64) (forInput inputGatherer, forOutput outputHandler, getLastOutput func() int64) {
+	var phaseGiven = false
+	var lastOutput int64
+	forInput = func() (nextInput int64){
+		if ! phaseGiven {
+			phaseGiven = true
+			return phase
+		}
+		nextInput = <- inputChan
+		return nextInput
+	}
+	forOutput = func(output int64) {
+		lastOutput = output
+		outputChan <- output
+	}
+	getLastOutput = func() int64 {
+		return lastOutput
+	}
+	return forInput, forOutput, getLastOutput
+}
+
+func runAmplifier(amplifier int, codes []int64, inputFunc inputGatherer, outputFunc outputHandler, finished chan bool) {
+	runIntComp(codes, inputFunc, outputFunc)
+	finished <- true
+}
+
 func day7() {
 	rawCodes := []int64{3,8,1001,8,10,8,105,1,0,0,21,46,55,68,89,110,191,272,353,434,99999,3,9,1002,9,3,9,1001,9,3,9,102,4,9,9,101,4,9,9,1002,9,5,9,4,9,99,3,9,102,3,9,9,4,9,99,3,9,1001,9,5,9,102,4,9,9,4,9,99,3,9,1001,9,5,9,1002,9,2,9,1001,9,5,9,1002,9,3,9,4,9,99,3,9,101,3,9,9,102,3,9,9,101,3,9,9,1002,9,4,9,4,9,99,3,9,1001,9,1,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,1001,9,2,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,2,9,4,9,99,3,9,102,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,1,9,9,4,9,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,99,3,9,101,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,2,9,9,4,9,99,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,1,9,4,9,99,3,9,1002,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,1,9,9,4,9,3,9,101,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,99}
 	var codes = make([]int64, len(rawCodes))
-
-	allInputs := generateCombinations([]int64{0,1,2,3,4})
-	fmt.Println(allInputs)
-	bestInput := []int64{0,1,2,3,4}
+	var allInputs [][]int64
+	var bestInput []int64
 	var largestResult int64
+
+	allInputs = generateCombinations([]int64{0,1,2,3,4})
+	bestInput = []int64{0,1,2,3,4}
 	for _, inputSet := range allInputs {
-		var potentalBestInput = make([]int64, len(inputSet))
-		copy(potentalBestInput, inputSet)
+		var potentialBestInputs = make([]int64, len(inputSet))
+		copy(potentialBestInputs, inputSet)
 		inputSet = append(inputSet[:1], append([]int64{0}, inputSet[1:]...)...)
 		gatherer, outputFunc, getLastOutput := generatePrimedIOHandlers(inputSet)
 		copy(codes, rawCodes)
@@ -486,8 +511,57 @@ func day7() {
 		}
 		if getLastOutput() > largestResult {
 			largestResult = getLastOutput()
-			bestInput = potentalBestInput
+			bestInput = potentialBestInputs
 		}
 	}
 	fmt.Println("Best input:", bestInput, "Value:", largestResult)
+
+	// testInput := []int64{3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5}
+	allInputs = generateCombinations([]int64{5,6,7,8,9})
+	bestInput = []int64{5,6,7,8,9}
+	largestResult = 0
+	for _, inputSet := range allInputs {
+		var potentialBestInput = make([]int64, len(inputSet))
+		copy(potentialBestInput, inputSet)
+
+		var inputGatherers = make([]inputGatherer, 5)
+		var outputFunctions = make([]outputHandler, 5)
+		var ampChannels = make([]chan int64, 5)
+		var finished = make([]chan bool, 5)
+		var lastOutputOfE = func() int64 {return -1}
+
+		for i := 0; i < 5; i++ {
+			ampChannels[i] = make(chan int64, 10)
+		}
+
+		for i := 0; i < 5; i++ {
+			var inputChannel = ampChannels[i]
+			var outputChannel = ampChannels[(i+1)%5]
+			gatherer, outputFunc, getLastOutput := generateContinuousIOHandlers(inputSet[i], inputChannel, outputChannel, int64(i))
+			inputGatherers[i] = gatherer
+			outputFunctions[i] = outputFunc
+			// We only need the output of E at the end
+			if i == 4 {
+				lastOutputOfE = getLastOutput
+			}
+		}
+		// A separate loop since we have to have the handlers generated
+		for i := 0; i < 5; i++ {
+			var finisher = make(chan bool)
+			finished[i] = finisher
+			var copiedcodes = make([]int64, len(rawCodes))
+			copy(copiedcodes, rawCodes)
+			go runAmplifier(i, copiedcodes, inputGatherers[i], outputFunctions[i], finisher)
+		}
+		ampChannels[0] <- 0
+		for i := 0; i < 5; i++ {
+			<- finished[i]
+		}
+
+		if lastOutputOfE() > largestResult {
+			largestResult = lastOutputOfE()
+			bestInput = potentialBestInput
+		}
+	}
+	fmt.Println("Best feedback input:", bestInput, "Value:", largestResult)
 }
