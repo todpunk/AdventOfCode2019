@@ -36,6 +36,8 @@ func main() {
 		day7()
 	case 8:
 		day8()
+	case 9:
+		day9()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -661,3 +663,6 @@ func day8() {
 	}
 }
 
+func day9() {
+
+}
