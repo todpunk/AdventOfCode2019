@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -38,6 +39,8 @@ func main() {
 		day8()
 	case 9:
 		day9()
+	case 10:
+		day10()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -247,6 +250,12 @@ type gridPoint struct{
 }
 
 func Abs(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+func AbsInt(x int) int {
 	if x < 0 {
 		return -x
 	}
@@ -688,4 +697,186 @@ func day9() {
 	pos0 := runIntComp(codes, gatherInputFromUser, printOutputHandler)
 
 	fmt.Println("Position 0:", pos0)
+}
+
+func gcdTwoNumbers(x int, y int) (gcd int){
+	// Greatest common denominator of two numbers, which gives us slope divisors
+	x = AbsInt(x)
+	y = AbsInt(y)
+	for ; y > 0 ; {
+		var t = y
+		y = x % y
+		x = t
+	}
+	return x
+}
+
+func getAngle(x1 int, y1 int, x2 int, y2 int) float64 {
+	// This returns the angle of the laser, starting with "up"
+	var angleRadians = (math.Atan2(float64(y1 - y2), float64(x1 - x2)) * 180) / math.Pi
+	if angleRadians < 0 {
+		angleRadians += 360
+	}
+	angleRadians -= 90
+	if angleRadians < 0 {
+		angleRadians += 360
+	}
+
+	return angleRadians
+}
+
+func checkLineOfSight(input []string, x1 int, y1 int, x2 int, y2 int) bool {
+	// This just makes sure we have line of sight from one asteroid to another without other asteroids in the middle
+	if string(input[y2][x2]) != "#" { return false }
+	if string(input[y1][x1]) != "#" { return false }
+	if y2 == y1 && x2 == x1 { return false }
+	// Make sure we have a minimal slope
+	var dy = y2 - y1
+	var dx = x2 - x1
+	if dx != dy || dy != 0 {
+		var gcd = gcdTwoNumbers(dy, dx)
+		dy /= gcd
+		dx /= gcd
+	}
+	// Now start us at the next point along the slope, and continue checking through the map
+	var x = x1 + dx
+	var y = y1 + dy
+	for ; y >= 0 && y < len(input) && x >= 0 && x < len(input[0]); {
+		if string(input[y][x]) == "#" {
+			if y == y2 && x == x2 {
+				return true
+			}
+				return false
+			}
+		y += dy
+		x += dx
+	}
+	return false
+}
+
+func calcAsteroidsSeen(input []string, x int, y int) (count int) {
+	// Iterate through all the _other_ asteroid points from a given asteroid point
+	var asteroidsSeen = map[string]bool{}
+	// Just brute force Lines to every point in the map to see what we hit
+	for tx := 0; tx < len(input[0]); tx++ {
+		for ty := 0; ty < len(input); ty++ {
+			if tx == x && ty == y {
+				continue
+			}
+			hit := checkLineOfSight(input, x, y, tx, ty)
+			//fmt.Println("HitX and HitY:", hitX, hitY)
+			if hit {
+				key := string(tx) + "," + string(ty)
+				if _, exists := asteroidsSeen[key]; !exists {
+					asteroidsSeen[key] = true
+				}
+			}
+		}
+	}
+	return len(asteroidsSeen)
+}
+
+type angleCoordinates struct {
+	angle float64
+	x int
+	y int
+}
+
+func day10() {
+	// Today's solution uses a lot of pfgithub's Javascript version, because grid ray tracing isn't my forte
+	var input = []string{
+		".#......#...#.....#..#......#..##..#",
+		"..#.......#..........#..##.##.......",
+		"##......#.#..#..#..##...#.##.###....",
+		"..#........#...........#.......##...",
+		".##.....#.......#........#..#.#.....",
+		".#...#...#.....#.##.......#...#....#",
+		"#...#..##....#....#......#..........",
+		"....#......#.#.....#..#...#......#..",
+		"......###.......#..........#.##.#...",
+		"#......#..#.....#..#......#..#..####",
+		".##...##......##..#####.......##....",
+		".....#...#.........#........#....#..",
+		"....##.....#...#........#.##..#....#",
+		"....#........#.###.#........#...#..#",
+		"....#..#.#.##....#.........#.....#.#",
+		"##....###....##..#..#........#......",
+		".....#.#.........#.......#....#....#",
+		".###.....#....#.#......#...##.##....",
+		"...##...##....##.........#...#......",
+		".....#....##....#..#.#.#...##.#...#.",
+		"#...#.#.#.#..##.#...#..#..#..#......",
+		"......#...#...#.#.....#.#.....#.####",
+		"..........#..................#.#.##.",
+		"....#....#....#...#..#....#.....#...",
+		".#####..####........#...............",
+		"#....#.#..#..#....##......#...#.....",
+		"...####....#..#......#.#...##.....#.",
+		"..##....#.###.##.#.##.#.....#......#",
+		"....#.####...#......###.....##......",
+		".#.....#....#......#..#..#.#..#.....",
+		"..#.......#...#........#.##...#.....",
+		"#.....####.#..........#.#.......#...",
+		"..##..#..#.....#.#.........#..#.#.##",
+		".........#..........##.#.##.......##",
+		"#..#.....#....#....#.#.......####..#",
+		"..............#.#...........##.#.#..",
+	}
+
+	// TestInput
+	//var input = []string {
+	//	".#..##.###...#######",
+	//	"##.############..##.",
+	//	".#.######.########.#",
+	//	".###.#######.####.#.",
+	//	"#####.##.#.##.###.##",
+	//	"..#####..#.#########",
+	//	"####################",
+	//	"#.####....###.#.#.##",
+	//	"##.#################",
+	//	"#####.##.###..####..",
+	//	"..######..##.#######",
+	//	"####.##.####...##..#",
+	//	".#####..#.######.###",
+	//	"##...#.##########...",
+	//	"#.##########.#######",
+	//	".####.#.###.###.#.##",
+	//	"....##.##.###..#####",
+	//	".#.#.###########.###",
+	//	"#.#.#.#####.####.###",
+	//	"###.##.####.##.#..##",
+	//}
+
+	var count, bestX, bestY int
+	var bestPoint string
+
+	for x := 0; x < len(input[0]); x++ {
+		for y := 0; y < len(input); y++ {
+			pointCount := calcAsteroidsSeen(input, x, y)
+			if pointCount > count {
+				count = pointCount
+				bestX = x
+				bestY = y
+				bestPoint = strconv.FormatInt(int64(x), 10) + "," + strconv.FormatInt(int64(y), 10)
+			}
+		}
+	}
+	fmt.Println("Best point with count:", bestPoint, count)
+
+	var hits = []angleCoordinates{}
+
+	for y2 := 0; y2 < len(input); y2++ {
+		for x2 := 0; x2 < len(input[0]); x2++ {
+			hit := checkLineOfSight(input, bestX, bestY, x2, y2)
+			if !hit {
+				continue
+			}
+			hits = append(hits, angleCoordinates{getAngle(bestX, bestY, x2, y2), x2, y2})
+		}
+	}
+	sort.Slice(hits, func(i, j int) bool {
+		return hits[i].angle < hits[j].angle
+	})
+
+	fmt.Println(hits[199].x, hits[199].y)
 }
