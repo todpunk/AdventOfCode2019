@@ -714,9 +714,6 @@ func gcdTwoNumbers(x int, y int) (gcd int){
 func getAngle(x1 int, y1 int, x2 int, y2 int) float64 {
 	// This returns the angle of the laser, starting with "up"
 	var angleRadians = (math.Atan2(float64(y1 - y2), float64(x1 - x2)) * 180) / math.Pi
-	if angleRadians < 0 {
-		angleRadians += 360
-	}
 	angleRadians -= 90
 	if angleRadians < 0 {
 		angleRadians += 360
@@ -863,6 +860,9 @@ func day10() {
 	}
 	fmt.Println("Best point with count:", bestPoint, count)
 
+	// It has occurred to me based on Jacob's input, that this doesn't work in all cases, since
+	// it doesn't account for asteroids at the same angle.  I just happen to not have those.
+	// Leaving this part 2 here that way for posterity.
 	var hits = []angleCoordinates{}
 
 	for y2 := 0; y2 < len(input); y2++ {
