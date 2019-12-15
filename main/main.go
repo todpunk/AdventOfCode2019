@@ -1320,6 +1320,139 @@ func day13() {
 	printMapFunc()
 }
 
-func day14() {
+type reactionChem struct {
+	amount int
+	name   string
+}
 
+func getAmountOfChemProducedFromChemOfAmount(fromChem string, fromChemAmount int, producedChem string,
+	neededForResult map[string][]reactionChem, producedAmount map[string]int) int {
+	var amountNeeded = 0
+	var stepAmount = 1000000
+	var amountGuess = 0
+	var found bool = false
+	for !found {
+		var excess = make(map[string]int)
+		amountGuess += stepAmount
+		amountNeeded = getNeededChemForChemOfAmount(fromChem, producedChem, amountGuess,
+			neededForResult, producedAmount, excess)
+
+		if amountNeeded > fromChemAmount {
+			fmt.Print(amountGuess, " ")
+			amountGuess -= stepAmount
+			if stepAmount == 1 {
+				found = true
+			}
+			stepAmount = int(math.Ceil(float64(stepAmount) / 2))
+			fmt.Print(stepAmount, "\n")
+		}
+
+	}
+
+	return amountGuess
+
+}
+
+func getNeededChemForChemOfAmount(neededChem string, resultChem string, amount int,
+	neededForResult map[string][]reactionChem, producedAmount map[string]int, excess map[string]int) int {
+	var gottenAmount int = 0
+	var scale int = 1
+
+	//ORE requires nothing to produce it, so return 0.
+	if resultChem == "ORE" || amount == 0 {
+		return 0
+	}
+
+	neededChemicals := neededForResult[resultChem]
+	if len(neededChemicals) != 0 {
+		if amount > producedAmount[resultChem] {
+			scale = int(math.Ceil(float64(amount) / float64(producedAmount[resultChem])))
+
+		}
+		for _, chem := range neededChemicals {
+
+			if chem.name == neededChem {
+				gottenAmount += chem.amount * scale
+				continue
+			}
+
+			// Golang % operator is the remainder function, and so a divide by 0 can happen
+			// This is why I have this here
+			if chem.name == "ORE" {
+				continue
+			}
+
+			// If amountNeeded(4) - excess(5) is less than zero,
+			// amountNeeded is set to 0 and excess would be  excess(5) -= amountNeeded(0).
+			// So this temp is here to keep the amountNeeded value for later
+			// so excess(5) -= tempAmount(4)
+			tempAmount := (chem.amount * scale)
+			amountNeeded := (chem.amount * scale) - excess[chem.name]
+			if amountNeeded < 0 {
+				amountNeeded = 0
+			}
+
+			excess[chem.name] -= tempAmount
+			if excess[chem.name] < 0 {
+				excess[chem.name] = 0
+			}
+
+			if (amountNeeded % producedAmount[chem.name]) != 0 {
+				excess[chem.name] += producedAmount[chem.name] - (amountNeeded % producedAmount[chem.name])
+			}
+
+			gottenAmount += getNeededChemForChemOfAmount(neededChem, chem.name, amountNeeded,
+				neededForResult, producedAmount, excess)
+		}
+		return gottenAmount
+	}
+	return 0
+}
+
+func day14() {
+	// Completely shamefully stolen from https://github.com/JacobPuff/AoC-2019-Golang/
+	file, err := os.Open("day14-input.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	var chemicalsNeededForResult = make(map[string][]reactionChem)
+	var producedAmount = make(map[string]int)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		reactionString := scanner.Text()
+		//Get inputs and output for reaction
+		reactionArray := strings.Split(reactionString, " => ")
+
+		//Get result data
+		resultArray := strings.Split(reactionArray[1], " ")
+		resultAmount, _ := strconv.Atoi(resultArray[0])
+		resultName := resultArray[1]
+		producedAmount[resultName] = resultAmount
+
+		//Get chemicals needed in structs
+		var completeInputChemArray []reactionChem
+		inputChemStringArray := strings.Split(reactionArray[0], ", ")
+		for _, inputChem := range inputChemStringArray {
+			if inputChem == "ORE" {
+				completeInputChemArray = append(completeInputChemArray, reactionChem{0, "ORE"})
+				continue
+			}
+			inputChemArray := strings.Split(inputChem, " ")
+			inputChemAmount, _ := strconv.Atoi(inputChemArray[0])
+			parsedInputChem := reactionChem{inputChemAmount, inputChemArray[1]}
+			completeInputChemArray = append(completeInputChemArray, parsedInputChem)
+		}
+
+		chemicalsNeededForResult[resultName] = completeInputChemArray
+	}
+	var excessChemicals = make(map[string]int)
+	oreNeededForOneFuel := getNeededChemForChemOfAmount("ORE", "FUEL", 1,
+		chemicalsNeededForResult, producedAmount, excessChemicals)
+	fuelProducedFromTrillionOre := getAmountOfChemProducedFromChemOfAmount("ORE", 1000000000000, "FUEL",
+		chemicalsNeededForResult, producedAmount)
+	fmt.Println("Ore needed for one fuel:", oreNeededForOneFuel)
+	fmt.Println("Fuel produced from one trillion ore:", fuelProducedFromTrillionOre)
 }
