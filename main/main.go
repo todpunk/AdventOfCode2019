@@ -6,10 +6,13 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"math"
+	"math/rand"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -19,6 +22,7 @@ var (
 func main() {
 	kingpin.Version("0.0.1")
 	kingpin.Parse()
+	rand.Seed(time.Now().UTC().UnixNano())
 	fmt.Printf("Would run day: %d\n", *day)
 	switch *day {
 	case 1:
@@ -49,6 +53,10 @@ func main() {
 		day13()
 	case 14:
 		day14()
+	case 15:
+		day15()
+	case 16:
+		day16()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -1455,4 +1463,314 @@ func day14() {
 		chemicalsNeededForResult, producedAmount)
 	fmt.Println("Ore needed for one fuel:", oreNeededForOneFuel)
 	fmt.Println("Fuel produced from one trillion ore:", fuelProducedFromTrillionOre)
+}
+
+type droidTile struct {
+	tile     string
+	traveled bool
+}
+
+const (
+	NORTH int64 = 1
+	SOUTH int64 = 2
+	WEST  int64 = 3
+	EAST  int64 = 4
+)
+
+func clearConsole(OS string) {
+
+	switch OS {
+	case "linux":
+		cmd := exec.Command("clear") //Linux example, its tested
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	case "windows":
+		cmd := exec.Command("cmd", "/c", "cls") //Windows example, its tested
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+}
+
+func getPointForDirection(dir int64, pos gridPoint) gridPoint {
+	var tilePoint gridPoint
+	switch dir {
+	case NORTH:
+		tilePoint = gridPoint{pos.x, pos.y - 1}
+	case SOUTH:
+		tilePoint = gridPoint{pos.x, pos.y + 1}
+	case WEST:
+		tilePoint = gridPoint{pos.x - 1, pos.y}
+	case EAST:
+		tilePoint = gridPoint{pos.x + 1, pos.y}
+	}
+	return tilePoint
+}
+
+func drawAreaAroundDroid(area map[gridPoint]droidTile, topLeft, bottomRight gridPoint) {
+	for y := topLeft.y; y <= bottomRight.y; y++ {
+		for x := topLeft.x; x <= bottomRight.x; x++ {
+			if area[gridPoint{x, y}].tile == "" {
+				fmt.Print(" ")
+			} else {
+				fmt.Print(area[gridPoint{x, y}].tile)
+			}
+		}
+		fmt.Println()
+	}
+}
+
+func getDroidIOHandlers(drawSetting int64) (inputGatherer, outputHandler, func() []gridPoint, func() int64) {
+	var shortestPath []gridPoint
+	rand.Seed(time.Now().UnixNano())
+	var areaAroundDroid = make(map[gridPoint]droidTile)
+	var stack []gridPoint
+	var topLeft gridPoint
+	var bottomRight gridPoint
+	var OxygenTankPoint gridPoint
+
+	var found bool = false
+	var gotMap bool = false
+	var backtracking bool = false
+	var availableDirs = []int64{NORTH, SOUTH, WEST, EAST}
+	var dir int64 = NORTH
+	var currentPos = gridPoint{0, 0}
+	areaAroundDroid[currentPos] = droidTile{"D", true}
+
+	in := func() int64 {
+		for {
+			if len(availableDirs) == 0 {
+				backtracking = true
+				if currentPos == (gridPoint{0, 0}) {
+					gotMap = true
+					if drawSetting == 0 {
+						drawAreaAroundDroid(areaAroundDroid, topLeft, bottomRight)
+					}
+					return 0
+				}
+				switch drawSetting {
+				case 1:
+					fmt.Print("OUT OF DIRS, BACKTRACKING.")
+				case 2:
+					if found {
+						fmt.Print("OUT OF DIRS, BACKTRACKING.")
+					}
+				}
+				if currentPos.x < stack[len(stack)-1].x {
+					dir = EAST
+				}
+				if currentPos.x > stack[len(stack)-1].x {
+					dir = WEST
+				}
+				if currentPos.y < stack[len(stack)-1].y {
+					dir = SOUTH
+				}
+				if currentPos.y > stack[len(stack)-1].y {
+					dir = NORTH
+				}
+				stack = stack[:len(stack)-1]
+				return dir
+			}
+			backtracking = false
+
+			dirIndex := int64(rand.Intn(len(availableDirs)) % 4)
+			dir = availableDirs[dirIndex]
+			tilePoint := getPointForDirection(dir, currentPos)
+			tile := areaAroundDroid[tilePoint]
+
+			if tile.traveled {
+				availableDirs = append(availableDirs[:dirIndex], availableDirs[dirIndex+1:]...)
+				continue
+			}
+			return dir
+		}
+	}
+
+	out := func(output int64) {
+		availableDirs = []int64{NORTH, SOUTH, WEST, EAST}
+
+		tilePoint := getPointForDirection(dir, currentPos)
+		tile := areaAroundDroid[tilePoint]
+		tile.traveled = true
+		switch output {
+		case 0:
+			tile.tile = "#"
+			areaAroundDroid[tilePoint] = tile
+		case 1:
+			// For drawing droid
+			tile.tile = "D"
+			currentTile := areaAroundDroid[currentPos]
+			currentTile.tile = "-"
+			if currentPos == OxygenTankPoint && currentPos != (gridPoint{0, 0}) {
+				currentTile.tile = "O"
+			}
+			areaAroundDroid[currentPos] = currentTile
+
+			if tilePoint.x < topLeft.x {
+				topLeft.x = tilePoint.x
+			}
+			if tilePoint.y < topLeft.y {
+				topLeft.y = tilePoint.y
+			}
+			if tilePoint.x > bottomRight.x {
+				bottomRight.x = tilePoint.x
+			}
+			if tilePoint.y > bottomRight.y {
+				bottomRight.y = tilePoint.y
+			}
+			if !backtracking {
+				stack = append(stack, currentPos)
+			}
+			currentPos = tilePoint
+		case 2:
+			// Copy stack now that the droid has found the oxygen system
+			tile.tile = "O"
+			stack = append(stack, currentPos)
+			shortestPath = make([]gridPoint, len(stack))
+			currentPos = tilePoint
+			OxygenTankPoint = tilePoint
+			copy(shortestPath, stack)
+			found = true
+		}
+		areaAroundDroid[tilePoint] = tile
+
+		switch drawSetting {
+		case 1:
+			clearConsole("windows")
+			drawAreaAroundDroid(areaAroundDroid, topLeft, bottomRight)
+			if found {
+				fmt.Println("FOUND")
+			}
+		case 2:
+			if found {
+				clearConsole("windows")
+				drawAreaAroundDroid(areaAroundDroid, topLeft, bottomRight)
+				fmt.Println("FOUND")
+			}
+		}
+	}
+
+	getShortestPath := func() []gridPoint {
+		return shortestPath
+	}
+
+	getTimeForOxygenSpread := func() int64 {
+		var time int64 = 0
+		var canGoToQueue []gridPoint
+		var perMinuteQueue []gridPoint
+		canGoToQueue = append(canGoToQueue, OxygenTankPoint)
+		availableDirs = []int64{NORTH, SOUTH, WEST, EAST}
+
+		for len(canGoToQueue) != 0 {
+			perMinuteQueue = make([]gridPoint, len(canGoToQueue))
+			copy(perMinuteQueue, canGoToQueue)
+			canGoToQueue = []gridPoint{}
+			for _, point := range perMinuteQueue {
+
+				for _, dir := range availableDirs {
+					dirPoint := getPointForDirection(dir, point)
+					dirTile := areaAroundDroid[dirPoint]
+					if dirTile.tile != "#" && dirTile.tile != "O" {
+						dirTile.tile = "O"
+						areaAroundDroid[dirPoint] = dirTile
+						canGoToQueue = append(canGoToQueue, dirPoint)
+					}
+				}
+			}
+
+			time++
+			if drawSetting > 0 && drawSetting < 4 {
+				clearConsole("windows")
+				drawAreaAroundDroid(areaAroundDroid, topLeft, bottomRight)
+				if found {
+					fmt.Println("FOUND")
+				}
+			}
+		}
+		//Oxygen tank is the first point, so subtract one to account for that.
+		time -= 1
+
+		return time
+	}
+
+	return in, out, getShortestPath, getTimeForOxygenSpread
+}
+
+func day15() {
+	// Completely shamefully stolen from https://github.com/JacobPuff/AoC-2019-Golang/
+	var repairBotProgram = []int64{3,1033,1008,1033,1,1032,1005,1032,31,1008,1033,2,1032,1005,1032,58,1008,1033,3,1032,1005,1032,81,1008,1033,4,1032,1005,1032,104,99,1002,1034,1,1039,1001,1036,0,1041,1001,1035,-1,1040,1008,1038,0,1043,102,-1,1043,1032,1,1037,1032,1042,1105,1,124,1001,1034,0,1039,102,1,1036,1041,1001,1035,1,1040,1008,1038,0,1043,1,1037,1038,1042,1105,1,124,1001,1034,-1,1039,1008,1036,0,1041,101,0,1035,1040,102,1,1038,1043,1001,1037,0,1042,1106,0,124,1001,1034,1,1039,1008,1036,0,1041,1001,1035,0,1040,102,1,1038,1043,1001,1037,0,1042,1006,1039,217,1006,1040,217,1008,1039,40,1032,1005,1032,217,1008,1040,40,1032,1005,1032,217,1008,1039,9,1032,1006,1032,165,1008,1040,5,1032,1006,1032,165,1101,0,2,1044,1105,1,224,2,1041,1043,1032,1006,1032,179,1102,1,1,1044,1106,0,224,1,1041,1043,1032,1006,1032,217,1,1042,1043,1032,1001,1032,-1,1032,1002,1032,39,1032,1,1032,1039,1032,101,-1,1032,1032,101,252,1032,211,1007,0,40,1044,1106,0,224,1101,0,0,1044,1106,0,224,1006,1044,247,102,1,1039,1034,101,0,1040,1035,101,0,1041,1036,1001,1043,0,1038,1001,1042,0,1037,4,1044,1106,0,0,26,29,83,66,1,36,14,44,33,12,3,15,20,56,9,35,51,55,6,20,13,71,15,23,94,38,45,15,47,30,89,39,11,55,5,9,47,29,41,36,78,12,4,65,48,66,36,94,76,30,63,41,32,1,73,1,35,65,87,46,18,90,11,44,30,73,87,8,38,46,17,78,51,34,19,53,37,26,20,24,46,64,17,6,26,41,10,62,14,88,23,94,13,55,5,45,10,39,83,99,32,34,72,30,58,33,71,47,21,38,97,38,46,41,18,39,37,8,86,55,35,4,92,19,21,53,61,6,55,69,16,85,62,26,63,17,80,33,10,53,91,2,37,94,37,93,7,97,18,55,54,36,17,62,89,12,92,32,69,4,46,47,19,89,25,12,51,91,9,1,71,35,56,39,98,48,7,49,24,95,15,45,2,1,93,82,19,7,11,70,30,64,28,27,58,4,39,30,94,72,33,43,90,98,26,32,70,1,81,25,35,47,17,31,92,15,73,13,27,72,65,30,67,2,22,89,77,30,47,12,58,26,79,22,37,74,41,3,42,30,39,67,24,18,62,98,19,59,95,25,6,67,42,35,85,51,48,7,63,17,67,53,45,13,25,43,1,54,4,65,55,20,73,32,70,1,33,39,93,88,19,35,56,21,13,53,73,31,21,44,73,31,13,69,30,42,26,51,25,90,16,49,9,93,50,28,60,24,18,61,23,11,98,19,45,77,12,61,31,3,66,56,4,77,24,59,87,31,38,65,67,7,9,23,71,9,59,35,55,83,22,12,94,17,67,87,96,63,8,29,32,34,15,55,39,60,41,74,39,81,47,51,25,26,57,28,18,60,84,20,16,66,42,14,25,16,94,2,22,74,85,19,63,32,9,19,11,91,44,34,21,1,56,12,87,8,52,18,56,7,90,5,86,81,24,98,21,9,80,59,68,10,80,53,18,75,50,9,14,43,26,29,57,86,39,41,93,3,69,55,16,84,15,22,84,30,72,19,13,15,19,80,97,79,32,68,77,82,30,19,4,71,45,67,14,95,17,54,80,88,25,13,80,41,37,96,15,28,26,33,73,32,45,79,21,52,23,98,82,21,16,13,64,32,39,93,17,33,95,61,36,12,21,3,84,4,88,22,26,59,80,27,82,2,85,79,29,33,52,17,23,95,8,64,16,56,23,42,43,18,41,11,9,84,42,62,4,67,17,98,76,99,1,16,72,72,10,79,19,76,4,54,9,99,34,33,7,97,85,19,76,93,38,6,90,37,90,2,83,61,19,43,39,2,91,17,60,21,79,2,32,94,38,32,7,64,8,14,7,68,23,28,75,24,73,50,29,63,22,89,4,51,66,2,7,33,82,13,23,84,81,23,55,68,15,27,9,97,27,79,42,86,75,56,13,95,74,5,88,25,44,99,33,14,24,29,21,78,4,15,75,32,92,74,11,56,24,57,10,28,73,8,10,90,77,30,96,8,60,3,71,20,41,9,33,89,38,74,95,4,95,35,13,18,55,10,81,9,60,17,67,7,34,48,48,15,54,79,37,66,43,22,64,28,28,4,91,5,9,92,30,64,37,98,66,15,92,2,3,25,70,25,33,61,56,25,70,58,30,41,97,18,54,10,49,45,3,1,30,57,30,46,8,55,79,39,58,46,35,19,38,80,86,4,36,75,29,62,39,71,2,41,6,66,36,99,21,61,39,72,3,48,29,43,31,59,84,71,12,52,61,82,11,56,23,51,30,60,88,65,35,48,24,58,76,49,93,51,33,72,0,0,21,21,1,10,1,0,0,0,0,0,0}
+	in, out, getShortestPath, getTimeForOxygenSpread := getDroidIOHandlers(0)
+	runIntComp(repairBotProgram, in, out)
+
+	shortestPath := getShortestPath()
+	timeForOxygenSpread := getTimeForOxygenSpread()
+	fmt.Println("Length of shortest path:", len(shortestPath))
+	fmt.Println("Time for oxygen spread:", timeForOxygenSpread)
+}
+
+func messageOfLenAtPoint(messageLen, point int, sequence []string) []string {
+	var phases int = 100
+	var basePattern = []int64{0, 1, 0, -1}
+	var replaceNum int64 = 0
+	var addedNumsForPattern int64 = 0
+	for i := 0; i < phases; i++ {
+		var newSequence = make([]string, len(sequence))
+		if point > len(sequence)/2 {
+			replaceNum = 0
+			addedNumsForPattern = 0
+		}
+		for replaceIndex := 0; replaceIndex < len(sequence); replaceIndex++ {
+			patternIndex := 0
+			count := 1
+			if point > len(sequence)/2 {
+				num, _ := strconv.ParseInt(sequence[(len(sequence)-1)-replaceIndex], 10, 64)
+				replaceNum += num
+				newSequence[(len(sequence)-1)-replaceIndex] = strconv.Itoa(int(replaceNum % 10))
+			} else {
+				replaceNum = 0
+				addedNumsForPattern = 0
+				for _, numString := range sequence {
+					num, _ := strconv.ParseInt(numString, 10, 64)
+					if count == replaceIndex+1 {
+						count = 0
+						replaceNum += addedNumsForPattern * basePattern[patternIndex]
+						addedNumsForPattern = 0
+						patternIndex = (patternIndex + 1) % len(basePattern)
+					}
+
+					if patternIndex == 1 || patternIndex == 3 {
+						addedNumsForPattern += num
+					}
+					count++
+				}
+				// Once more because the loop ends
+				replaceNum += addedNumsForPattern * basePattern[patternIndex]
+				newSequence[replaceIndex] = strconv.Itoa(int(Abs(replaceNum) % 10))
+			}
+		}
+		sequence = newSequence
+	}
+
+	return sequence[point : point+messageLen]
+}
+
+func day16() {
+	// Completely shamefully stolen from https://github.com/JacobPuff/AoC-2019-Golang/
+	var sequenceString string = "59712692690937920492680390886862131901538154314496197364022235676243731306353384700179627460533651346711155314756853419495734284609894966089975988246871687322567664499495407183657735571812115059436153203283165299263503632551949744441033411147947509168375383038493461562836199103303184064429083384309509676574941283043596285161244885454471652448757914444304449337194545948341288172476145567753415508006250059581738670546703862905469451368454757707996318377494042589908611965335468490525108524655606907405249860972187568380476703577532080056382150009356406585677577958020969940093556279280232948278128818920216728406595068868046480073694516140765535007"
+	var sequence = strings.Split(sequenceString, "")
+
+	// Part 1
+	fmt.Println("First eight digits after 100 phases:", messageOfLenAtPoint(8, 0, sequence))
+
+	// Part 2
+	fmt.Println("Repeating sequence 10,000 times")
+	var expandedSequenceString string
+	for i := 0; i < 10000; i++ {
+		expandedSequenceString += sequenceString
+	}
+	var expandedSequence = strings.Split(expandedSequenceString, "")
+	skipNum, _ := strconv.Atoi(sequenceString[0:7])
+	fmt.Println("Running part 2")
+	trueMessage := messageOfLenAtPoint(8, skipNum, expandedSequence)
+
+	fmt.Println("First eight digits after skipping to point", skipNum, ":", trueMessage)
 }
