@@ -59,6 +59,14 @@ func main() {
 		day16()
 	case 17:
 		day17()
+	case 18:
+		day18()
+	case 19:
+		day19()
+	case 20:
+		day20()
+	case 21:
+		day21()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -1875,4 +1883,706 @@ func day17() {
 		fmt.Println()
 	}
 
+}
+
+type Route struct {
+	routeName  string
+	pos        gridPoint
+	length     int
+	prevPoints map[string]bool
+}
+
+type keyDoorPath struct {
+	startPos     gridPoint
+	endPos       gridPoint
+	length       int
+	startName    string
+	endName      string
+	doorsBetween []string
+	keysBetween  []string
+}
+
+func day18() {
+	// Completely shamefully stolen from https://github.com/JacobPuff/AoC-2019-Golang/
+	var dungeonMap = []string{
+		"#################################################################################",
+		"#.....#...............#.....#.A.#.......#.....#e..............#.....#...........#",
+		"#.###.#########.#####.###.#.###.#.###.#.###.#.###.###########.#.#.###.#####.#####",
+		"#.#.#.....#...#.#...#.#...#.....#.#.#.#.#...#..m#...#.......#.#.#.#...#.#...#...#",
+		"#.#.#####.#.#.#.#.###.#.#########.#.#.###.#####.###.#.#######.###.#.###.#N###.#.#",
+		"#.#.#...#...#...#...#.#.....T.......#...#.#...#.....#.#.....#.#...#.....#.#...#.#",
+		"#.#.#.#.###########.#.#.###############.#.#.#.#######.#.###.#.#.#.#####.#.#.###.#",
+		"#.#...#.......#.....#.#.......#.....#...#.#.#...#.........#j....#.#...#.#.#.#...#",
+		"#.###########.#.#.#.#.#########.###.#.#.#.#.###.#.#########.#####.###.#.#.#.#.#.#",
+		"#.#.....#...#.#.#.#.#...........#...#.#.#.#...#.#.#...#...#.#...#...#.#.#...#.#.#",
+		"#.#P###.#D#.#.#.#.###############.###.#.#.###.#.#.###.#.#.###.#.###.#.#.#####.###",
+		"#...#...#.#.#u..#.......#...#.....#...#.#.#...#.......#.#.....#...#...#.....#...#",
+		"#####.###.#.#######.###.#.###.#######.#.#.#########.###.#########.#########.###.#",
+		"#...#.#...#g......#...#.#...#.#.....#.#.#.#...#...#.#...#.......#.#.........#...#",
+		"#.#.#.#.#########.###.#.###.#.###.#.#.#.#.#.#.#.#.###.#######.#.#.#.#########O#.#",
+		"#.#...#..d#.....#...#.#.....#.....#...#.#...#...#.....#.....#.#.#...#.....#...#.#",
+		"#.#######.#.###F###.#.#################.#.###############.#.#.#.#######.#.#.###.#",
+		"#.....#...#..h#...#.#.............#.....#.#.......#.......#...#.....#...#.#.#...#",
+		"#.###.#H#####.#.###G#.#######.#####.#####.###.#.#.#.###.###########.#.###.#.#####",
+		"#.#.#.#.......#.#...#.....#...#...#.#...#...#.#.#.#...#.#...#.....#...#.#.#.....#",
+		"#.#.#.#########.#.#########.###.#.#.###.###.#.#.#.#####.#.#.#####.#####.#.#####.#",
+		"#...#.....#.....#b..#...#...#...#...#...#...#.#.#.....#...#.#y..#.......#.....#.#",
+		"###.#####.#.#######.###B#.#.#.#######.#.#.#####.#####.#.###.###.#####.#.#.#####.#",
+		"#...#...I.#f......#.....#.#.#.#...#...#.#...#...#...#.#.#.....#.....#.#...#.....#",
+		"#####.###########.#######.###.#.###.#.#####.#.###.###.###.#########.#######.#####",
+		"#o....#k........#.#.#.......#.#.#...#...#.#.#.#.....#.#...#.......#.......K.#...#",
+		"#.#####.###.#####.#.#.#####.#.#.#.#####.#.#.#.###.#.#.#.###.###.###############.#",
+		"#.#.......#...#.C.#.....#...#.#...#...#.#...#...#.#.#.#...#...#.....#...........#",
+		"#.#.#########.#.#########.###.###.#.###.#.#####.#.#.#.###.###.#####.#.#.#######.#",
+		"#...#l........#...#.....#...#...#...#...#.......#.#...#...#...#...#...#.X.#...#.#",
+		"#.###.#.#########.#V###.###.###.#####.###########.#####.###.###.#########.#.#.#.#",
+		"#...#.#.#.....#...#.#.#.#...#.#.....#...#.......#...#...#...#...........#.#.#.#.#",
+		"#####.#.#.###.#.###.#.#.#.#.#.#####.###.#.#####.###.#.#.#.###.#######.###.#.#.#W#",
+		"#.....#.#.#r#.#.#...#.#.#.#.#.#...#...#.#.#...#...#.#.#.#...#.......#...#.#.#.#.#",
+		"#.#######.#.#.#.###.#.#.#.#.#.#.#.###.#.#.###.###.#.#.#.###.###########.#.#.#.#.#",
+		"#.........#.#.#.#s..#...#.#.Q.#.#.#...#.#...#...#...#.#.............#...#.#.#...#",
+		"#.#########.#.#.#.###.###.#.###.#.#.###.###.#.#.#####.#######.#####.#.###.#.#####",
+		"#...#...#...#.#...#...#...#.#...#...#...#.#.#.#.....#...#...#.#...#...#...#...#.#",
+		"###.#Y#.###.#.#####.###.#####.#########.#.#.###.###.#####.#.###.#.#####.#####.#.#",
+		"#.....#.....#.......#...........................#.........#....q#.......#.......#",
+		"#######################################.@.#######################################",
+		"#...#.#.................#..z..............#.......#.............#...............#",
+		"#.#.#.#.#.#############.#.#.###########.#.#.#.#####.#####.#####.#.###.#########.#",
+		"#.#...#.#.#...#.#.....#.#.#.#.....#...#.#...#.#...Z.....#.#.....#.#.#.#.......#.#",
+		"#.#####.#.#.#.#.#.#.#.#.###.#.#####.#.#.#.###.#.#########.#######.#.#.#####.###.#",
+		"#.#...#.#...#.#...#.#x#.#...#.#.....#.#.#...#.....#.....#.#...#.....#.#...#.....#",
+		"#.#.#.#.#####.#####.###.#.###.#.#####.#.###.#######.###.#.#.#.#.#####.#.#.#####.#",
+		"#w..#...#...#.....#.#.....#...#.#.....#.#.#...#.....#.#...#.#...#..v#.#.#.....#.#",
+		"#.#######.#.#####.#.#.#####.###.#.#####.#.###.#.#####.#.###.#####.#.#.#.#####.###",
+		"#.#.......#.#.#...#.#.#...#.#...#.#...#.#...#.#.#.......#...#...#.#.#.#.#...#...#",
+		"#.###.#.###.#.#.###.#.#.#.#.#.###.#.#.#.#.###.#.###.#####.###.#.#.#.#.#.###.###.#",
+		"#...#.#...#...#.#.#...#.#.#...#.#.#.#...#...#.#...#.#...#.#...#.R.#.#.........#.#",
+		"###.#####.###.#.#.#.###.#.###.#.#.#.#####.#.#.###.#.#.#.#.#.#######.#.#########.#",
+		"#.#...#...#.#.#.#.....#.#...#...#.......#.#.#...#.#...#.#.#.#...#...#.#.........#",
+		"#.###.#.###.#.#.#######.###.#.#########.#.#.###.#.#######.#.#.###.###.#.#######.#",
+		"#...#...#...#.#.........#...#.#...#.....#.#...#.#.........#.#.#...#...#.#.......#",
+		"#.#######.#.#.###########.#####.#.#####.###.###.###########.#.#.#######.#########",
+		"#.........#.#.#.........#.......#.#...#.#...#...#...........#.#.#.....#.........#",
+		"#.###.#######.#.###.#####.#####.#.#.#.###.#.#.###.###########.#.#.###S#########.#",
+		"#...#.......#...#...#...#.#...#.#...#...#.#.#...#.....L.#.....#...#...#...#...#.#",
+		"#.#########.#####.###.#.###.#.###.#####.#.#####.#######.#.#########.###.#.#.#.#.#",
+		"#.#.......#.#...#.#.#.#.#...#...#...#...#...........#...#...#.#....c#...#...#.#.#",
+		"###.#####.#.#.#.#.#.###.#.#####.#####.###.###########.#####.#.#.#####.#######.#.#",
+		"#...#.......#.#...#...#...#...#...#...#.#...#.........#.....#...#.......#.......#",
+		"#.###.#######.#####.#######.#.###.#.###.###.#.###########.#.#########.#.#######.#",
+		"#.#.#.#...#...#.............#...#...#...#...#.............#.........#.#.#.....#.#",
+		"#.#.#.#.#.#.###########.#####.#.#####.###.#########################.###.#.###.#.#",
+		"#.#...#.#.#.....#.....#...#...#.#.#.....#.....#...#.......#.......#...#...#...#.#",
+		"#.#####.#.#####.#.###.#####.###.#.#.###.#####.#.###.###.###.#####.###.#####.#####",
+		"#.......#...#.#...#.#.#.....#.#.#...#...#...#.#.#.....#.........#...#.....#.....#",
+		"#.#######.#.#.#####E#.#.#####.#.#.###.#.#.#.#.#.#.#############.#.#.#####.###.#.#",
+		"#...#.....#...#...#...#.#.....#.#...#.#.#.#...#.....#..a#.....#.#.#...#.#...#.#.#",
+		"#####.#######.#.###.###.#.###.#.#.###.#.#.###########.#.#.###.###.###.#.###.###.#",
+		"#...#.#.#...#.#.#...#...#.#...#.#.#...#.#.....#.....#.#.#.#.#...#...#...#.#...#.#",
+		"#.#.#.#.#.#.#.#.#.###.#.#.#.#.#.###.###.#####.#.###.#.#.#.#.###.###.###.#.###.#.#",
+		"#.#.#.#.#.#.....#.#...#.#.#.#.#.....#.#.#.....#.#...#.#...#...#...#.#.#.#...#..i#",
+		"#.#.#.#.#.#######.#####.###.#########.#.#.#####U#.###.#######.###.#.#.#.#.#.#####",
+		"#.#n..#.......#...#...#...#.#...#.......#.......#t#...#.........#.#.#.#...#.#...#",
+		"#.#############.###.#.###.#.#.#.#.###############.#.###.#.#######.#.#.#####.#.#.#",
+		"#...............J...#.....#...#.........#...........#...#.........M.#..p......#.#",
+		"#################################################################################",
+	}
+
+
+	var mazeMap = make(map[gridPoint]droidTile)
+	var doors = make(map[string]bool)
+	var keys = make(map[string]bool)
+	var x, y int64
+	var currentPos gridPoint
+
+	for _, line := range dungeonMap {
+		for index := range line {
+			if line[index] == '@' {
+				// mazeMap[Point{x - 1, y}] = droidTile{"#", false}
+				// mazeMap[Point{x + 1, y}] = droidTile{"#", false}
+				currentPos = gridPoint{x, y}
+			}
+			if line[index] != '#' && line[index] != '@' && line[index] != '.' {
+				stringChar := string(line[index])
+				if stringChar == strings.ToUpper(stringChar) {
+					doors[stringChar] = true
+				}
+				if stringChar == strings.ToLower(stringChar) {
+					keys[stringChar] = true
+				}
+			}
+
+			if mazeMap[gridPoint{x, y}].tile == "" {
+				mazeMap[gridPoint{x, y}] = droidTile{string(line[index]), false}
+			}
+			x++
+		}
+		x = 0
+		y++
+	}
+
+	var listOfRoutes []Route
+	var startRoute Route
+	var shortestRouteSteps = math.MaxInt64
+	// Set start route data
+	startRoute.pos = currentPos
+	startRoute.length = 0
+	startRoute.routeName = "@"
+	startRoute.prevPoints = make(map[string]bool)
+	startRoute.prevPoints["@"] = true
+	// Make a map to memoize things
+	prevPathsCalculated := make(map[string]keyDoorPath)
+
+	listOfRoutes = getRoutesFromStartRoute(startRoute, prevPathsCalculated, mazeMap, doors, keys, listOfRoutes)
+
+	for _, route := range listOfRoutes {
+		if route.length < shortestRouteSteps {
+			shortestRouteSteps = route.length
+		}
+	}
+	fmt.Println("Shortest path for part 1:", shortestRouteSteps)
+	fmt.Println("Key len:", len(keys))
+}
+
+func canReachKey(route Route, path keyDoorPath) bool {
+	var canReachKey bool = true
+	for _, door := range path.doorsBetween {
+		if !route.prevPoints[strings.ToLower(door)] {
+			canReachKey = false
+		}
+	}
+	return canReachKey
+}
+
+func getRoutesFromStartRoute(fromRoute Route, prevPathsCalculated map[string]keyDoorPath, mazeMap map[gridPoint]droidTile, doors map[string]bool, keys map[string]bool, listOfRoutes []Route) []Route {
+	// Get all keys that the route doesnt have,
+	// check if we've done calculation to that key from the route position before
+	//
+	// if we have, and we have all the keys for the doors,
+	//    add key and length to route
+	// if we haven't
+	//    search for that key in a breadth first search,
+	//    cache result, and add it to the route
+
+	var route Route = Route{"", gridPoint{0, 0}, 0, make(map[string]bool)}
+
+	for key := range keys {
+		//Make new route instead of reference
+		route.pos = fromRoute.pos
+		route.length = fromRoute.length
+		route.routeName = fromRoute.routeName
+		// Copy prevPoints so its not a reference
+		for key, val := range fromRoute.prevPoints {
+			route.prevPoints[key] = val
+		}
+		if !route.prevPoints[key] {
+
+			cacheString := fmt.Sprintf("({x: %d, y: %d}, key: %s)", route.pos.x, route.pos.y, key)
+			// I used length to see if a value existed because it has a default of 0,
+			// and its easy to understand that there shouldnt be a length of 0.
+			var pathToKey keyDoorPath
+			if prevPathsCalculated[cacheString].length != 0 {
+				pathToKey = prevPathsCalculated[cacheString]
+			} else {
+				pathToKey = getDistanceAndDoorsBetweenPointAndKey(route.pos, key, mazeMap, doors, keys)
+				prevPathsCalculated[cacheString] = pathToKey
+			}
+			// fmt.Println("KEY NUM:", keyNum, "KEY:", key)
+			// keyNum++
+
+			if canReachKey(route, pathToKey) {
+				route.routeName += key
+				for _, keyName := range pathToKey.keysBetween {
+					route.prevPoints[keyName] = true
+				}
+				// route.prevPoints[key] = true
+				route.length += pathToKey.length
+				route.pos = pathToKey.endPos
+				newListOfRoutes := getRoutesFromStartRoute(route, prevPathsCalculated, mazeMap, doors, keys, listOfRoutes)
+				listOfRoutes = append(listOfRoutes, newListOfRoutes...)
+			}
+
+		}
+	}
+
+	var hasAllKeys = true
+	for key := range keys {
+		if route.prevPoints[key] == false {
+			hasAllKeys = false
+		}
+	}
+	if hasAllKeys {
+		fmt.Println("finished route", fromRoute.routeName, len(route.prevPoints), route.length)
+		listOfRoutes = append(listOfRoutes, fromRoute)
+	}
+	return listOfRoutes
+}
+
+func getDistanceAndDoorsBetweenPointAndKey(startPoint gridPoint, key string, mazeMap map[gridPoint]droidTile, doors map[string]bool, keys map[string]bool) keyDoorPath {
+	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
+	var canGoToQueue []gridPoint
+	// var localDist int = 0
+	canGoToQueue = append(canGoToQueue, startPoint)
+	var mazeCopy = make(map[gridPoint]droidTile)
+	// Copy mazeMap
+	for key, val := range mazeMap {
+		mazeCopy[key] = val
+	}
+	// Use point and return parent of that point
+	var breadthFirstSearchTree = make(map[gridPoint]gridPoint)
+	//Set start point to traveled so its parent isnt overwritten
+	mazeCopy[startPoint] = droidTile{mazeCopy[startPoint].tile, true}
+	breadthFirstSearchTree[startPoint] = gridPoint{-1, -1}
+
+	var keyDoorPathToReturn keyDoorPath
+	keyDoorPathToReturn.startPos = startPoint
+	keyDoorPathToReturn.startName = mazeCopy[startPoint].tile
+	keyDoorPathToReturn.endName = key
+
+	for len(canGoToQueue) != 0 {
+		var currentQueue = make([]gridPoint, len(canGoToQueue))
+		copy(currentQueue, canGoToQueue)
+		canGoToQueue = []gridPoint{}
+		for _, point := range currentQueue {
+			for _, dir := range availableDirs {
+				dirPoint := getPointForDirection(dir, point)
+				dirTile := mazeCopy[dirPoint]
+				currentParent := point
+
+				if dirTile.tile == key {
+					//fmt.Println("found key", dirTile.tile)
+					keyDoorPathToReturn.endPos = dirPoint
+					for currentParent != (gridPoint{-1, -1}) {
+						parentTile := mazeCopy[currentParent]
+						if doors[mazeCopy[currentParent].tile] {
+							keyDoorPathToReturn.doorsBetween = append(keyDoorPathToReturn.doorsBetween, parentTile.tile)
+						}
+						// Add all keys along the way
+						if keys[mazeCopy[currentParent].tile] {
+							keyDoorPathToReturn.keysBetween = append(keyDoorPathToReturn.keysBetween, parentTile.tile)
+						}
+						keyDoorPathToReturn.length++
+						currentParent = breadthFirstSearchTree[currentParent]
+					}
+					return keyDoorPathToReturn
+				}
+
+				if dirTile.tile != "#" && dirTile.tile != "" && !dirTile.traveled {
+					breadthFirstSearchTree[dirPoint] = currentParent
+					dirTile.traveled = true
+					mazeCopy[dirPoint] = dirTile
+					canGoToQueue = append(canGoToQueue, dirPoint)
+				}
+			}
+		}
+	}
+	//It shouldn't get to this point if a key exists
+	keyDoorPathToReturn.endName = "ERROR"
+	return keyDoorPathToReturn
+}
+
+func tractorBeamDroneIOHandlers(x, y int64) (inputGatherer, outputHandler, func() bool) {
+	var sentX bool = false
+	var pulled = false
+	in := func() int64 {
+		if !sentX {
+			sentX = true
+			return x
+		}
+		return y
+	}
+	out := func(output int64) {
+		if output == 1 {
+			pulled = true
+		}
+	}
+
+	getPulled := func() bool {
+		return pulled
+	}
+	return in, out, getPulled
+}
+
+func day19() {
+	// Completely shamefully stolen from https://github.com/JacobPuff/AoC-2019-Golang/
+	var tractorBeamDroneProgram = []int64{109,424,203,1,21102,11,1,0,1105,1,282,21102,1,18,0,1106,0,259,2101,0,1,221,203,1,21102,1,31,0,1106,0,282,21102,38,1,0,1105,1,259,20101,0,23,2,22101,0,1,3,21101,1,0,1,21101,57,0,0,1105,1,303,2101,0,1,222,21001,221,0,3,21002,221,1,2,21101,0,259,1,21102,80,1,0,1106,0,225,21102,89,1,2,21102,91,1,0,1105,1,303,2101,0,1,223,20101,0,222,4,21101,0,259,3,21102,1,225,2,21102,225,1,1,21102,118,1,0,1106,0,225,20101,0,222,3,21101,136,0,2,21101,133,0,0,1106,0,303,21202,1,-1,1,22001,223,1,1,21101,148,0,0,1105,1,259,1202,1,1,223,20102,1,221,4,21001,222,0,3,21102,18,1,2,1001,132,-2,224,1002,224,2,224,1001,224,3,224,1002,132,-1,132,1,224,132,224,21001,224,1,1,21102,195,1,0,106,0,108,20207,1,223,2,20102,1,23,1,21101,-1,0,3,21101,214,0,0,1105,1,303,22101,1,1,1,204,1,99,0,0,0,0,109,5,1202,-4,1,249,21201,-3,0,1,22102,1,-2,2,21202,-1,1,3,21102,1,250,0,1105,1,225,21201,1,0,-4,109,-5,2105,1,0,109,3,22107,0,-2,-1,21202,-1,2,-1,21201,-1,-1,-1,22202,-1,-2,-2,109,-3,2105,1,0,109,3,21207,-2,0,-1,1206,-1,294,104,0,99,22102,1,-2,-2,109,-3,2105,1,0,109,5,22207,-3,-4,-1,1206,-1,346,22201,-4,-3,-4,21202,-3,-1,-1,22201,-4,-1,2,21202,2,-1,-1,22201,-4,-1,1,21201,-2,0,3,21102,343,1,0,1106,0,303,1105,1,415,22207,-2,-3,-1,1206,-1,387,22201,-3,-2,-3,21202,-2,-1,-1,22201,-3,-1,3,21202,3,-1,-1,22201,-3,-1,2,21202,-4,1,1,21102,384,1,0,1105,1,303,1106,0,415,21202,-4,-1,-4,22201,-4,-3,-4,22202,-3,-2,-2,22202,-2,-4,-4,22202,-3,-2,-3,21202,-4,-1,-2,22201,-3,-2,1,21202,1,1,-4,109,-5,2106,0,0}
+	pointsAffected := 0
+	var x, y int64
+	var sizeX int64 = 100
+	var sizeY int64 = 100
+	var width int64 = 50
+	var height int64 = 50
+	var wantedXCoord int64
+	var wantedYCoord int64
+	for y = 0; y < height; y++ {
+		for x = 0; x < width; x++ {
+			in, out, getPulled := tractorBeamDroneIOHandlers(x, y)
+			runIntComp(tractorBeamDroneProgram, in, out)
+			isPulled := getPulled()
+			if isPulled {
+				fmt.Print("#")
+				pointsAffected++
+			} else {
+				fmt.Print(" ")
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Println("Points affected in 50x50 square:", pointsAffected)
+	var gottenXYClosestCoords bool = false
+	for !gottenXYClosestCoords {
+
+		//Subtract 1 because the coordinates start at 0
+		in, out, getPulled := tractorBeamDroneIOHandlers(x, y+sizeY-1)
+		runIntComp(tractorBeamDroneProgram, in, out)
+		isPulledBottomLeft := getPulled()
+
+		in, out, getPulled = tractorBeamDroneIOHandlers(x+sizeX-1, y)
+		runIntComp(tractorBeamDroneProgram, in, out)
+		isPulledTopRight := getPulled()
+
+		if isPulledBottomLeft && isPulledTopRight {
+			wantedXCoord = x
+			wantedYCoord = y
+			gottenXYClosestCoords = true
+		}
+
+		if isPulledBottomLeft {
+			x -= sizeX + 1
+			y++
+		} else {
+			x++
+		}
+	}
+	fmt.Println("Wanted coords to fit size of 100x100:", (wantedXCoord*10000)+wantedYCoord)
+}
+
+type teleporter struct {
+	pointA gridPoint
+	pointB gridPoint
+	name   string
+}
+
+func day20() {
+	// Completely shamefully stolen from https://github.com/JacobPuff/AoC-2019-Golang/
+	file, err := os.Open("day20-input.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	var mazeMap = make(map[gridPoint]string)
+	var teleNameMap = make(map[gridPoint]string)
+	var teleMap = make(map[string]teleporter)
+	scanner := bufio.NewScanner(file)
+
+	var x, y, width, height int64
+	for scanner.Scan() {
+		line := scanner.Text()
+		for _, char := range line {
+			if char != ' ' && char != '#' && char != '.' {
+				northPoint := mazeMap[gridPoint{x, y - 1}]
+				westPoint := mazeMap[gridPoint{x - 1, y}]
+				var telePoint gridPoint
+				var teleName string
+				if northPoint != "" && northPoint != " " && northPoint != "#" && northPoint != "." {
+					//Look up two, to check for a period.
+					if mazeMap[gridPoint{x, y - 2}] == "." {
+						telePoint = gridPoint{x, y - 2}
+					} else {
+						telePoint = gridPoint{x, y + 1}
+					}
+					teleName = northPoint + string(char)
+				}
+
+				if westPoint != "" && westPoint != " " && westPoint != "#" && westPoint != "." {
+					//Look back two, to check for a period.
+					if mazeMap[gridPoint{x - 2, y}] == "." {
+						telePoint = gridPoint{x - 2, y}
+					} else {
+						telePoint = gridPoint{x + 1, y}
+					}
+					teleName = westPoint + string(char)
+				}
+
+				//Set the teleNameMap and teleMap so I can get the telporters later
+				if telePoint != (gridPoint{0, 0}) {
+					teleNameMap[telePoint] = teleName
+					tele := teleMap[teleName]
+					if tele.pointA == (gridPoint{0, 0}) {
+						tele.pointA = telePoint
+					} else {
+						tele.pointB = telePoint
+					}
+					teleMap[teleName] = tele
+				}
+			}
+
+			mazeMap[gridPoint{x, y}] = string(char)
+			width = x
+			height = y
+			x++
+		}
+		x = 0
+		y++
+	}
+
+	fmt.Println("Done parsing maze...")
+
+	var shortestPathWithoutLevels = []gridPoint{}
+	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
+
+	// AA and ZZ are treated like teleporters,
+	// so I can loop them up that way.
+	// They only have a pointA.
+	var startPos = teleMap["AA"].pointA
+
+	//Take point, return parent
+	var breadthFirstMap = make(map[gridPoint]gridPoint)
+	breadthFirstMap[startPos] = gridPoint{-1, -1}
+
+	//Make it so startPos is traveled so it doesnt try to move over it and overwrite the parent
+	var traveledMap = make(map[gridPoint]bool)
+	traveledMap[startPos] = true
+
+	var canGotoQueue = []gridPoint{}
+	canGotoQueue = append(canGotoQueue, startPos)
+
+	// This is the part 1 breadth first search.
+	// I was going to reduce the amount of code,
+	// and try and do both parts at the same time,
+	// but I wanted to make it easy to read and understand.
+	for len(canGotoQueue) != 0 {
+		var localQueue = make([]gridPoint, len(canGotoQueue))
+		copy(localQueue, canGotoQueue)
+		canGotoQueue = []gridPoint{}
+		for _, point := range localQueue {
+			for _, dir := range availableDirs {
+				dirPoint := getPointForDirection(dir, point)
+				dirTile := mazeMap[dirPoint]
+
+				if teleNameMap[dirPoint] != "" && !traveledMap[dirPoint] {
+					breadthFirstMap[dirPoint] = point
+					teleName := teleNameMap[dirPoint]
+					if teleName == "ZZ" {
+						fmt.Println("Found end of maze without levels...")
+						currentParent := breadthFirstMap[dirPoint]
+						for currentParent != (gridPoint{-1, -1}) {
+							shortestPathWithoutLevels = append(shortestPathWithoutLevels, currentParent)
+							currentParent = breadthFirstMap[currentParent]
+						}
+					} else {
+						// fmt.Println("Using teleporter: ", teleName)
+						tele := teleMap[teleName]
+						if dirPoint != tele.pointA {
+							breadthFirstMap[tele.pointA] = dirPoint
+							traveledMap[tele.pointA] = true
+							canGotoQueue = append(canGotoQueue, tele.pointA)
+						} else {
+							breadthFirstMap[tele.pointB] = dirPoint
+							traveledMap[tele.pointB] = true
+							canGotoQueue = append(canGotoQueue, tele.pointB)
+						}
+						traveledMap[dirPoint] = true
+						mazeMap[dirPoint] = dirTile
+					}
+				}
+
+				if dirTile == "." && !traveledMap[dirPoint] {
+					traveledMap[dirPoint] = true
+					breadthFirstMap[dirPoint] = point
+					canGotoQueue = append(canGotoQueue, dirPoint)
+				}
+			}
+		}
+	}
+
+	var shortestPathWithLevels = []xyzPoint{}
+	var leftAndTopEdgeOffset int64 = 2
+	var rightEdgeOffset int64 = width - 2
+	var bottomEdgeOffset int64 = height - 2
+
+	var xyzStartPos = xyzPoint{teleMap["AA"].pointA.x, teleMap["AA"].pointA.y, 0}
+
+	//Take point, return parent
+	var xyzBreadthFirstMap = make(map[xyzPoint]xyzPoint)
+	xyzBreadthFirstMap[xyzStartPos] = xyzPoint{-1, -1, 0}
+
+	//Make it so startPos is traveled so it doesnt try to move over it and overwrite the parent
+	var xyzTraveledMap = make(map[xyzPoint]bool)
+	xyzTraveledMap[xyzStartPos] = true
+
+	var xyzCanGotoQueue = []xyzPoint{}
+	xyzCanGotoQueue = append(xyzCanGotoQueue, xyzStartPos)
+
+	for len(xyzCanGotoQueue) != 0 && len(shortestPathWithLevels) == 0 {
+		var localQueue = make([]xyzPoint, len(xyzCanGotoQueue))
+		copy(localQueue, xyzCanGotoQueue)
+		xyzCanGotoQueue = []xyzPoint{}
+		for _, point := range localQueue {
+			for _, dir := range availableDirs {
+				dirXYPoint := getPointForDirection(dir, gridPoint{point.x, point.y})
+				dirPoint := xyzPoint{dirXYPoint.x, dirXYPoint.y, point.z}
+				dirTile := mazeMap[dirXYPoint]
+
+				if teleNameMap[dirXYPoint] != "" && dirTile == "." && !xyzTraveledMap[dirPoint] {
+					xyzBreadthFirstMap[dirPoint] = point
+					teleName := teleNameMap[dirXYPoint]
+					if teleName == "ZZ" {
+						// fmt.Println("Found zz at level:", dirPoint.z)
+						if point.z == 0 {
+							fmt.Println("Found end of maze with levels")
+							currentParent := xyzBreadthFirstMap[dirPoint]
+							for currentParent != (xyzPoint{-1, -1, 0}) {
+
+								shortestPathWithLevels = append(shortestPathWithLevels, currentParent)
+
+								currentParent = xyzBreadthFirstMap[currentParent]
+							}
+						}
+					} else if teleName != "AA" {
+						tele := teleMap[teleName]
+						var teleXYZPoint xyzPoint
+						var level = point.z
+						if dirXYPoint == tele.pointB {
+							// Because pointA is not equal, we are at pointB.
+							// So if pointA is on the outer edge,
+							// then we are going one level deeper at pointB on the inner edge,
+							// so add one to level.
+							if tele.pointA.x == leftAndTopEdgeOffset || tele.pointA.y == leftAndTopEdgeOffset ||
+								tele.pointA.x == rightEdgeOffset || tele.pointA.y == bottomEdgeOffset {
+								level++
+							} else {
+								level--
+							}
+
+							if level >= 0 && level < int64(len(teleNameMap)) {
+								teleXYZPoint = xyzPoint{tele.pointA.x, tele.pointA.y, level}
+							}
+						} else {
+							if tele.pointB.x == leftAndTopEdgeOffset || tele.pointB.y == leftAndTopEdgeOffset ||
+								tele.pointB.x == rightEdgeOffset || tele.pointB.y == bottomEdgeOffset {
+								level++
+							} else {
+								level--
+							}
+
+							if level >= 0 && level < int64(len(teleNameMap)) {
+								teleXYZPoint = xyzPoint{tele.pointB.x, tele.pointB.y, level}
+							}
+						}
+						//Dont check z axis because level can be 0
+						if teleXYZPoint.x != 0 && teleXYZPoint.y != 0 {
+							// fmt.Println("Using teleporter: ", teleName, "from level:", point.z, "to go to level:", level)
+							xyzTraveledMap[dirPoint] = true
+							xyzBreadthFirstMap[teleXYZPoint] = dirPoint
+							xyzTraveledMap[teleXYZPoint] = true
+							xyzCanGotoQueue = append(xyzCanGotoQueue, teleXYZPoint)
+						}
+					}
+				}
+
+				if dirTile == "." && !xyzTraveledMap[dirPoint] {
+					xyzTraveledMap[dirPoint] = true
+					xyzBreadthFirstMap[dirPoint] = point
+					xyzCanGotoQueue = append(xyzCanGotoQueue, dirPoint)
+				}
+			}
+		}
+	}
+
+	fmt.Println("Shortest path steps without levels:", len(shortestPathWithoutLevels))
+	fmt.Println("Shortest path steps with levels:", len(shortestPathWithLevels))
+
+}
+
+const (
+	A     int64 = 65
+	B     int64 = 66
+	C     int64 = 67
+	D     int64 = 68
+	E     int64 = 69
+	F     int64 = 70
+	G     int64 = 71
+	H     int64 = 72
+	I     int64 = 73
+	J     int64 = 74
+	K     int64 = 75
+	L     int64 = 76
+	N     int64 = 78
+	O     int64 = 79
+	R     int64 = 82
+	T     int64 = 84
+	U     int64 = 85
+	W     int64 = 87
+	SPACE int64 = 32
+	NEWLINE  int64 = 10
+)
+
+func springDroidIOHandlers(shouldRun bool) (inputGatherer, outputHandler) {
+	var currentChar = 0
+	var droidProgram []int64
+
+	if !shouldRun {
+		// Check if spaces A, B, and C, exist.
+		// Only if they all exist T will be set to true.
+		// If T is false, one of those three is gone.
+		// Wait until we can land on space D to jump.
+		droidProgram = []int64{
+			O, R, SPACE, A, SPACE, T, NEWLINE,
+			A, N, D, SPACE, B, SPACE, T, NEWLINE,
+			A, N, D, SPACE, C, SPACE, T, NEWLINE,
+			N, O, T, SPACE, T, SPACE, J, NEWLINE,
+			A, N, D, SPACE, D, SPACE, J, NEWLINE,
+			W, A, L, K, NEWLINE}
+	} else {
+		droidProgram = []int64{
+			// E lines up jumps that are off a little bit,
+			// and H prevents E from killing the bot
+			// AND D J could be moved above the E H lines,
+			// because the droid has memory from its last state,
+			// but this is easier to read.
+			O, R, SPACE, A, SPACE, T, NEWLINE,
+			A, N, D, SPACE, B, SPACE, T, NEWLINE,
+			A, N, D, SPACE, C, SPACE, T, NEWLINE,
+			N, O, T, SPACE, T, SPACE, J, NEWLINE,
+
+			O, R, SPACE, E, SPACE, T, NEWLINE,
+			O, R, SPACE, H, SPACE, T, NEWLINE,
+			A, N, D, SPACE, T, SPACE, J, NEWLINE,
+			A, N, D, SPACE, D, SPACE, J, NEWLINE,
+			R, U, N, NEWLINE}
+
+	}
+
+	in := func() int64 {
+		toReturn := droidProgram[currentChar]
+		fmt.Print(string(toReturn))
+		currentChar++
+		return toReturn
+	}
+	out := func(output int64) {
+		if output > 128 {
+			fmt.Println(output)
+		} else {
+			fmt.Print(string(output))
+		}
+
+	}
+
+	return in, out
+}
+
+func day21() {
+	// Completely shamefully stolen from https://github.com/JacobPuff/AoC-2019-Golang/
+	var springDroidProgram = []int64{109,2050,21101,0,966,1,21102,13,1,0,1106,0,1378,21102,1,20,0,1106,0,1337,21101,27,0,0,1105,1,1279,1208,1,65,748,1005,748,73,1208,1,79,748,1005,748,110,1208,1,78,748,1005,748,132,1208,1,87,748,1005,748,169,1208,1,82,748,1005,748,239,21102,1041,1,1,21101,0,73,0,1105,1,1421,21101,0,78,1,21101,1041,0,2,21102,1,88,0,1105,1,1301,21102,68,1,1,21102,1041,1,2,21102,1,103,0,1106,0,1301,1102,1,1,750,1106,0,298,21102,1,82,1,21102,1041,1,2,21101,125,0,0,1105,1,1301,1101,2,0,750,1106,0,298,21101,79,0,1,21101,0,1041,2,21102,1,147,0,1106,0,1301,21102,84,1,1,21101,1041,0,2,21102,1,162,0,1105,1,1301,1101,3,0,750,1105,1,298,21101,0,65,1,21101,0,1041,2,21102,1,184,0,1106,0,1301,21101,0,76,1,21101,0,1041,2,21101,199,0,0,1105,1,1301,21101,75,0,1,21102,1041,1,2,21102,1,214,0,1105,1,1301,21102,221,1,0,1106,0,1337,21101,10,0,1,21101,1041,0,2,21101,0,236,0,1105,1,1301,1106,0,553,21102,1,85,1,21102,1041,1,2,21101,254,0,0,1106,0,1301,21101,0,78,1,21102,1,1041,2,21102,269,1,0,1105,1,1301,21102,1,276,0,1106,0,1337,21102,1,10,1,21102,1041,1,2,21101,291,0,0,1106,0,1301,1101,0,1,755,1105,1,553,21101,0,32,1,21101,0,1041,2,21101,313,0,0,1106,0,1301,21102,1,320,0,1106,0,1337,21101,327,0,0,1105,1,1279,1201,1,0,749,21101,0,65,2,21102,1,73,3,21102,1,346,0,1106,0,1889,1206,1,367,1007,749,69,748,1005,748,360,1101,1,0,756,1001,749,-64,751,1106,0,406,1008,749,74,748,1006,748,381,1101,-1,0,751,1105,1,406,1008,749,84,748,1006,748,395,1101,0,-2,751,1106,0,406,21102,1,1100,1,21101,0,406,0,1106,0,1421,21101,0,32,1,21102,1100,1,2,21102,421,1,0,1106,0,1301,21101,428,0,0,1106,0,1337,21101,0,435,0,1105,1,1279,2102,1,1,749,1008,749,74,748,1006,748,453,1101,-1,0,752,1105,1,478,1008,749,84,748,1006,748,467,1101,0,-2,752,1105,1,478,21102,1,1168,1,21101,0,478,0,1105,1,1421,21102,485,1,0,1106,0,1337,21102,10,1,1,21101,1168,0,2,21102,500,1,0,1106,0,1301,1007,920,15,748,1005,748,518,21101,1209,0,1,21101,0,518,0,1106,0,1421,1002,920,3,529,1001,529,921,529,1001,750,0,0,1001,529,1,537,1002,751,1,0,1001,537,1,545,1001,752,0,0,1001,920,1,920,1106,0,13,1005,755,577,1006,756,570,21101,0,1100,1,21101,0,570,0,1106,0,1421,21101,0,987,1,1105,1,581,21101,0,1001,1,21102,588,1,0,1106,0,1378,1102,758,1,594,102,1,0,753,1006,753,654,21002,753,1,1,21101,0,610,0,1106,0,667,21101,0,0,1,21101,0,621,0,1105,1,1463,1205,1,647,21101,0,1015,1,21102,1,635,0,1106,0,1378,21102,1,1,1,21101,0,646,0,1106,0,1463,99,1001,594,1,594,1105,1,592,1006,755,664,1101,0,0,755,1105,1,647,4,754,99,109,2,1101,0,726,757,21201,-1,0,1,21101,0,9,2,21101,697,0,3,21102,1,692,0,1106,0,1913,109,-2,2106,0,0,109,2,1002,757,1,706,2101,0,-1,0,1001,757,1,757,109,-2,2105,1,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,255,63,159,191,95,127,223,0,46,68,200,234,187,123,126,182,53,62,125,236,61,103,204,168,235,114,77,108,214,42,140,102,245,170,172,70,166,136,107,106,188,115,50,163,78,124,205,139,203,162,190,110,86,183,184,98,39,157,35,99,228,231,254,54,59,158,49,215,238,154,100,109,242,247,199,248,113,58,143,101,181,229,87,142,120,252,202,175,216,198,220,111,218,243,241,56,92,250,76,237,141,213,38,57,167,189,178,197,177,152,222,69,51,85,251,212,233,55,230,94,219,201,84,171,239,93,232,179,137,71,122,249,47,246,196,185,207,173,156,217,119,79,174,169,153,206,121,60,244,43,138,118,117,186,227,221,34,226,253,116,155,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,20,73,110,112,117,116,32,105,110,115,116,114,117,99,116,105,111,110,115,58,10,13,10,87,97,108,107,105,110,103,46,46,46,10,10,13,10,82,117,110,110,105,110,103,46,46,46,10,10,25,10,68,105,100,110,39,116,32,109,97,107,101,32,105,116,32,97,99,114,111,115,115,58,10,10,58,73,110,118,97,108,105,100,32,111,112,101,114,97,116,105,111,110,59,32,101,120,112,101,99,116,101,100,32,115,111,109,101,116,104,105,110,103,32,108,105,107,101,32,65,78,68,44,32,79,82,44,32,111,114,32,78,79,84,67,73,110,118,97,108,105,100,32,102,105,114,115,116,32,97,114,103,117,109,101,110,116,59,32,101,120,112,101,99,116,101,100,32,115,111,109,101,116,104,105,110,103,32,108,105,107,101,32,65,44,32,66,44,32,67,44,32,68,44,32,74,44,32,111,114,32,84,40,73,110,118,97,108,105,100,32,115,101,99,111,110,100,32,97,114,103,117,109,101,110,116,59,32,101,120,112,101,99,116,101,100,32,74,32,111,114,32,84,52,79,117,116,32,111,102,32,109,101,109,111,114,121,59,32,97,116,32,109,111,115,116,32,49,53,32,105,110,115,116,114,117,99,116,105,111,110,115,32,99,97,110,32,98,101,32,115,116,111,114,101,100,0,109,1,1005,1262,1270,3,1262,20101,0,1262,0,109,-1,2105,1,0,109,1,21102,1288,1,0,1105,1,1263,21001,1262,0,0,1102,0,1,1262,109,-1,2105,1,0,109,5,21101,1310,0,0,1105,1,1279,21201,1,0,-2,22208,-2,-4,-1,1205,-1,1332,22101,0,-3,1,21102,1332,1,0,1105,1,1421,109,-5,2105,1,0,109,2,21102,1,1346,0,1106,0,1263,21208,1,32,-1,1205,-1,1363,21208,1,9,-1,1205,-1,1363,1105,1,1373,21102,1370,1,0,1105,1,1279,1105,1,1339,109,-2,2105,1,0,109,5,2102,1,-4,1386,20102,1,0,-2,22101,1,-4,-4,21101,0,0,-3,22208,-3,-2,-1,1205,-1,1416,2201,-4,-3,1408,4,0,21201,-3,1,-3,1106,0,1396,109,-5,2105,1,0,109,2,104,10,21202,-1,1,1,21102,1,1436,0,1106,0,1378,104,10,99,109,-2,2106,0,0,109,3,20002,594,753,-1,22202,-1,-2,-1,201,-1,754,754,109,-3,2105,1,0,109,10,21101,5,0,-5,21102,1,1,-4,21102,1,0,-3,1206,-9,1555,21102,3,1,-6,21101,0,5,-7,22208,-7,-5,-8,1206,-8,1507,22208,-6,-4,-8,1206,-8,1507,104,64,1105,1,1529,1205,-6,1527,1201,-7,716,1515,21002,0,-11,-8,21201,-8,46,-8,204,-8,1105,1,1529,104,46,21201,-7,1,-7,21207,-7,22,-8,1205,-8,1488,104,10,21201,-6,-1,-6,21207,-6,0,-8,1206,-8,1484,104,10,21207,-4,1,-8,1206,-8,1569,21102,1,0,-9,1105,1,1689,21208,-5,21,-8,1206,-8,1583,21101,1,0,-9,1105,1,1689,1201,-5,716,1589,20102,1,0,-2,21208,-4,1,-1,22202,-2,-1,-1,1205,-2,1613,21201,-5,0,1,21102,1613,1,0,1105,1,1444,1206,-1,1634,22102,1,-5,1,21101,0,1627,0,1106,0,1694,1206,1,1634,21102,2,1,-3,22107,1,-4,-8,22201,-1,-8,-8,1206,-8,1649,21201,-5,1,-5,1206,-3,1663,21201,-3,-1,-3,21201,-4,1,-4,1105,1,1667,21201,-4,-1,-4,21208,-4,0,-1,1201,-5,716,1676,22002,0,-1,-1,1206,-1,1686,21101,1,0,-4,1105,1,1477,109,-10,2106,0,0,109,11,21102,0,1,-6,21101,0,0,-8,21101,0,0,-7,20208,-6,920,-9,1205,-9,1880,21202,-6,3,-9,1201,-9,921,1725,20102,1,0,-5,1001,1725,1,1732,21002,0,1,-4,22102,1,-4,1,21102,1,1,2,21101,9,0,3,21101,0,1754,0,1105,1,1889,1206,1,1772,2201,-10,-4,1766,1001,1766,716,1766,21002,0,1,-3,1106,0,1790,21208,-4,-1,-9,1206,-9,1786,21202,-8,1,-3,1105,1,1790,22102,1,-7,-3,1001,1732,1,1796,20102,1,0,-2,21208,-2,-1,-9,1206,-9,1812,22102,1,-8,-1,1106,0,1816,22101,0,-7,-1,21208,-5,1,-9,1205,-9,1837,21208,-5,2,-9,1205,-9,1844,21208,-3,0,-1,1105,1,1855,22202,-3,-1,-1,1105,1,1855,22201,-3,-1,-1,22107,0,-1,-1,1105,1,1855,21208,-2,-1,-9,1206,-9,1869,22101,0,-1,-8,1106,0,1873,21201,-1,0,-7,21201,-6,1,-6,1105,1,1708,22101,0,-8,-10,109,-11,2105,1,0,109,7,22207,-6,-5,-3,22207,-4,-6,-2,22201,-3,-2,-1,21208,-1,0,-6,109,-7,2105,1,0,0,109,5,1201,-2,0,1912,21207,-4,0,-1,1206,-1,1930,21102,1,0,-4,21201,-4,0,1,22101,0,-3,2,21102,1,1,3,21101,1949,0,0,1105,1,1954,109,-5,2105,1,0,109,6,21207,-4,1,-1,1206,-1,1977,22207,-5,-3,-1,1206,-1,1977,21201,-5,0,-5,1105,1,2045,22101,0,-5,1,21201,-4,-1,2,21202,-3,2,3,21101,1996,0,0,1106,0,1954,22101,0,1,-5,21101,0,1,-2,22207,-5,-3,-1,1206,-1,2015,21102,0,1,-2,22202,-3,-2,-3,22107,0,-4,-1,1206,-1,2037,22101,0,-2,1,21102,2037,1,0,106,0,1912,21202,-3,-1,-3,22201,-5,-3,-5,109,-6,2105,1,0}
+
+	// Part 1 with walking
+	in, out := springDroidIOHandlers(false)
+	runIntComp(springDroidProgram, in, out)
+
+	// Part 2 with running
+	in, out = springDroidIOHandlers(true)
+	runIntComp(springDroidProgram, in, out)
 }
