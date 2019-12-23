@@ -6,6 +6,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"math"
+	"math/big"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -67,6 +68,8 @@ func main() {
 		day20()
 	case 21:
 		day21()
+	case 22:
+		day22()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -2585,4 +2588,130 @@ func day21() {
 	// Part 2 with running
 	in, out = springDroidIOHandlers(true)
 	runIntComp(springDroidProgram, in, out)
+}
+
+func cutDeck(deck []int, cutNumber int) []int {
+	if cutNumber > 0 {
+		deck = append(deck[cutNumber:], deck[:cutNumber]...)
+	} else {
+		cutNumber = DeckSize + cutNumber
+		deck = append(deck[cutNumber:], deck[:cutNumber]...)
+	}
+	return deck
+}
+
+func reverseDeck(deck []int) []int {
+	for i, j := 0, len(deck)-1; i < j; i, j = i+1, j-1 {
+		deck[i], deck[j] = deck[j], deck[i]
+	}
+	return deck
+}
+
+func dealDeckWithInterval(deck []int, interval int) []int {
+	var tableSpace = make([]int, len(deck))
+	for i, n := 0, 0; i < len(deck); i++ {
+		tableSpace[n] = deck[i]
+		n = (n + interval) % len(deck)
+	}
+	return tableSpace
+}
+
+func invBigInt(x , c *big.Int) *big.Int {
+	bigInt := big.NewInt(0)
+	retVal := bigInt.Exp(x, bigInt.Sub(c,  big.NewInt(2)), c)
+	return retVal
+}
+
+const (
+	DeckSize int = 10007
+	BigDeckSize int = 119315717514047
+)
+
+func day22() {
+	var spaceDeck = make([]int, DeckSize)
+	var shuffles = []string{}
+	file, err := os.Open("day22-input.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		shuffles = append(shuffles, scanner.Text())
+	}
+
+	defer file.Close()
+
+	for i := 0; i < DeckSize; i++ {
+		spaceDeck[i] = i
+	}
+	for i := 0; i < len(shuffles); i++ {
+		line := shuffles[i]
+		if strings.HasPrefix(line, "deal into") {
+			spaceDeck = reverseDeck(spaceDeck)
+		}
+		if strings.HasPrefix(line, "cut ") {
+			num, _ := strconv.ParseInt(strings.Split(line, " ")[1], 10, 64)
+			spaceDeck = cutDeck(spaceDeck, int(num))
+		}
+		if strings.HasPrefix(line, "deal with") {
+			num, _ := strconv.ParseInt(strings.Split(line, " ")[3], 10, 64)
+			spaceDeck = dealDeckWithInterval(spaceDeck, int(num))
+		}
+	}
+
+	for i, pos := 0, 0; pos == 0; i++ {
+		if spaceDeck[i] == 2019 {
+			pos = 1
+			fmt.Println("Position of 2019:", i)
+		}
+	}
+
+	// For part 2, we can't simulate the deck, so we'll have to keep track of operations instead
+	// I've already pulled shuffles out into a set of strings for doing this often
+	// Credit to the whole community with similar math for the pattern I'd never figure out
+
+	var incrementRate = big.NewInt(1)
+	var offset = big.NewInt(0)
+	bigInt := big.NewInt(0)
+	var bigIntDeckSize = big.NewInt(int64(BigDeckSize))
+	shuffleTimes := big.NewInt(101741582076661)
+	for lineNum := 0; lineNum < len(shuffles); lineNum++{
+		line := shuffles[lineNum]
+		if strings.HasPrefix(line, "cut ") {
+			num, _ := strconv.ParseInt(strings.Split(line, " ")[1], 10, 64)
+			offset.Add(offset, bigInt.Mul(incrementRate, big.NewInt(num)))
+		}
+		if strings.HasPrefix(line, "deal with") {
+			num, _ := strconv.ParseInt(strings.Split(line, " ")[3], 10, 64)
+			incrementRate.Mul(incrementRate, invBigInt(big.NewInt(num), bigIntDeckSize))
+		}
+		if strings.HasPrefix(line, "deal into") {
+			offset.Sub(offset, incrementRate)
+			incrementRate.Neg(incrementRate)
+		}
+	}
+
+	// When I combine these into less lines, I break things a lot.  This is easier to follow as well.
+	position := big.NewInt(2020)
+	negIncrementRate := bigInt.Sub(big.NewInt(1), incrementRate)
+	offset.Mul(offset, invBigInt(negIncrementRate, bigIntDeckSize))
+	incrementRate.Exp(incrementRate, shuffleTimes, bigIntDeckSize)
+	position.Mul(position, incrementRate)
+	negIncrementRate = bigInt.Sub(big.NewInt(1), incrementRate)
+	negIncrementRate.Mul(negIncrementRate, offset)
+	added := bigInt.Add(position, negIncrementRate)
+	position.Mod(added, bigIntDeckSize)
+
+	fmt.Println("Card at 2020:", position)
+
+	// Failed with 11071218642195
+	// Failed with 115472293458660
+	// Failed with 58767844608851
+	// Failed with 115472293458736
+	// Failed with 27707634465568
+	// Failed with 61795058599718
+	// Failed with 58484976126416
+	// Failed with 82153917000203
+	// Failed with 99293654523040
+	// Answer is   70725194521472
 }
