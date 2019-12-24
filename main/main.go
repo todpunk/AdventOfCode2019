@@ -2904,6 +2904,13 @@ func calculateBiodiversityRating(field []string) int {
 	return total
 }
 
+type BugTile struct {
+	biodiversityRating int64
+	adjacentBugCount   int64
+	tile               string
+	hasBug             bool
+}
+
 func day24() {
 	var input = []string{
 		"####.",
@@ -2933,10 +2940,161 @@ func day24() {
 
 	var rating = calculateBiodiversityRating(seenTwice)
 
-	fmt.Println("Tile:")
+	fmt.Println("Tile first seen twice:")
 	fmt.Println(strings.Join(seenTwice, "\n"))
 	fmt.Println("Biodiversity rating:", rating)
 
 	// Failed with 8243663
+	// Answer is 32511025
+
+	// Part 2 stuff adapted from JacobPuff's version
+	// I make these maps so that I can get the adjacent bugs for them,
+	// and the other levels should be handled from there
+	var availableDirs = []int64{NORTH, SOUTH, WEST, EAST}
+	var bugMap = make(map[gridPoint]BugTile)
+	var levelMap = make(map[int64]map[gridPoint]BugTile)
+	levelMap[0] = make(map[gridPoint]BugTile)
+	levelMap[-1] = make(map[gridPoint]BugTile)
+	levelMap[1] = make(map[gridPoint]BugTile)
+	var x, y, width, height, bugsPressentAfter200Minutes  int64
+
+	noCommaFlattened := strings.Join(input,"")
+	for i := int64(0); i < int64(len(noCommaFlattened)); i++ {
+		x = i % 5
+		y = i / 5
+		char := noCommaFlattened[i]
+		var newBugTile BugTile
+		newBugTile.biodiversityRating = 1 << i
+		newBugTile.tile = string(char)
+		if char == '#' {
+			newBugTile.hasBug = true
+		}
+		bugMap[gridPoint{x, y}] = newBugTile
+		levelMap[0][gridPoint{x, y}] = newBugTile
+	}
+	fmt.Println(levelMap[0])
+
+	// Width and height are the edges, not a count of the items on each axis,
+	// and the grid starts at 0, so I dont need to subtract 1 for an offset.
+	width = 4
+	height = 4
+	hole := gridPoint{width / 2, height / 2}
+	var minutesPassed = 0
+	for minutesPassed <= 200 {
+		for level, levelBugMap := range levelMap {
+			if levelMap[level-1] == nil {
+				levelMap[level-1] = make(map[gridPoint]BugTile)
+			}
+			if levelMap[level+1] == nil {
+				levelMap[level+1] = make(map[gridPoint]BugTile)
+			}
+			for y = 0; y <= height; y++ {
+				for x = 0; x <= width; x++ {
+					bugTile := levelBugMap[gridPoint{x, y}]
+					bugPoint := gridPoint{x, y}
+					bugTile.adjacentBugCount = 0
+
+					if bugPoint != hole {
+						for _, dir := range availableDirs {
+							checkBugPoint := getPointForDirection(dir, bugPoint)
+							// Handle outside edges
+							if checkBugPoint.x == -1 {
+								if levelMap[level-1][gridPoint{hole.x - 1, hole.y}].hasBug {
+									bugTile.adjacentBugCount++
+								}
+							} else if checkBugPoint.y == -1 {
+								if levelMap[level-1][gridPoint{hole.x, hole.y - 1}].hasBug {
+									bugTile.adjacentBugCount++
+								}
+
+							} else if checkBugPoint.x == width+1 {
+								if levelMap[level-1][gridPoint{hole.x + 1, hole.y}].hasBug {
+									bugTile.adjacentBugCount++
+								}
+							} else if checkBugPoint.y == width+1 {
+								if levelMap[level-1][gridPoint{hole.x, hole.y + 1}].hasBug {
+									bugTile.adjacentBugCount++
+								}
+							}
+
+							// Handle inside edges.
+							var checkX, checkY int64
+							if bugPoint == (gridPoint{hole.x - 1, hole.y}) && checkBugPoint == hole {
+								for checkY = 0; checkY <= height; checkY++ {
+									if levelMap[level+1][gridPoint{0, checkY}].hasBug {
+										bugTile.adjacentBugCount++
+									}
+								}
+							} else if bugPoint == (gridPoint{hole.x, hole.y - 1}) && checkBugPoint == hole {
+								for checkX = 0; checkX <= width; checkX++ {
+									if levelMap[level+1][gridPoint{checkX, 0}].hasBug {
+										bugTile.adjacentBugCount++
+									}
+								}
+							} else if bugPoint == (gridPoint{hole.x + 1, hole.y}) && checkBugPoint == hole {
+								for checkY = 0; checkY <= height; checkY++ {
+									if levelMap[level+1][gridPoint{width, checkY}].hasBug {
+										bugTile.adjacentBugCount++
+									}
+								}
+							} else if bugPoint == (gridPoint{hole.x, hole.y + 1}) && checkBugPoint == hole {
+								for checkX = 0; checkX <= width; checkX++ {
+									if levelMap[level+1][gridPoint{checkX, height}].hasBug {
+										bugTile.adjacentBugCount++
+									}
+								}
+							}
+
+							// Handle everything else
+							if levelBugMap[checkBugPoint].hasBug {
+								bugTile.adjacentBugCount++
+							}
+						}
+					}
+					levelBugMap[gridPoint{x, y}] = bugTile
+				}
+			}
+		}
+
+		if minutesPassed == 200 {
+			for _, levelBugMap := range levelMap {
+				for y = 0; y <= height; y++ {
+					for x = 0; x <= width; x++ {
+						bugTile := levelBugMap[gridPoint{x, y}]
+						if bugTile.hasBug {
+							bugsPressentAfter200Minutes++
+						}
+					}
+				}
+			}
+		} else {
+			for _, levelBugMap := range levelMap {
+				for y = 0; y <= height; y++ {
+					for x = 0; x <= width; x++ {
+						bugTile := levelBugMap[gridPoint{x, y}]
+						if bugTile.hasBug {
+							if bugTile.adjacentBugCount != 1 {
+								bugTile.tile = "."
+								bugTile.hasBug = false
+							}
+						} else {
+							if bugTile.adjacentBugCount == 1 || bugTile.adjacentBugCount == 2 {
+								bugTile.tile = "#"
+								bugTile.hasBug = true
+							}
+						}
+						levelBugMap[gridPoint{x, y}] = bugTile
+					}
+				}
+			}
+		}
+		minutesPassed++
+	}
+
+	// Failed with 1939 (too high)
+	// Answer is 1932
+
+	fmt.Println("Biodiversity rating of first layout that appears twice:", rating)
+	fmt.Println("Bugs present after 200 minutes:", bugsPressentAfter200Minutes)
 
 }
