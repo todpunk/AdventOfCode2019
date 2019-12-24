@@ -72,6 +72,8 @@ func main() {
 		day22()
 	case 23:
 		day23()
+	case 24:
+		day24()
 	default:
 		fmt.Println("We don't have that day...")
 	}
@@ -2859,4 +2861,82 @@ func day23() {
 	value = <- first255
 
 	fmt.Println("First Y twice:", value)
+}
+
+func reconcileBugs(initial []string) string {
+	var width = len(initial[0])
+	var height = len(initial)
+	var next = []string{}
+
+	for y := 0; y < height; y++ {
+		nextRow := []string{}
+		for x := 0; x < width; x++ {
+			current := string(initial[y][x])
+			adjacent := 0
+			if x < width - 1 && initial[y][x+1] == '#' { adjacent++ }
+			if x > 0 && initial[y][x-1] == '#' { adjacent++ }
+			if y < height - 1 && initial[y+1][x] == '#' { adjacent++ }
+			if y > 0 && initial[y-1][x] == '#' { adjacent++ }
+
+			if current == "#" && adjacent != 1 {
+				nextRow = append(nextRow, ".")
+			} else if current == "." && (adjacent == 1 || adjacent == 2) {
+				nextRow = append(nextRow, "#")
+			} else {
+				nextRow = append(nextRow, current)
+			}
+		}
+		next = append(next, strings.Join(nextRow, ""))
+	}
+	return strings.Join(next,",")
+}
+
+func calculateBiodiversityRating(field []string) int {
+	setup := strings.Join(field, "")
+
+	var total int
+	for i := 0; i < len(setup); i++ {
+		if setup[i] == '#' {
+			value := 1 << i
+			total += value
+		}
+	}
+	return total
+}
+
+func day24() {
+	var input = []string{
+		"####.",
+		".###.",
+		".#..#",
+		"##.##",
+		"###..",
+	}
+
+	var seen = map[string]int{}
+	var order = []string{}
+
+	flattened := strings.Join(input,",")
+	seen[flattened] = 1
+	order = append(order, flattened)
+	var seenTwice []string
+	for i := 0; ; i++ {
+		var next = reconcileBugs(strings.Split(order[i], ","))
+		seen[next] += 1
+		order = append(order, next)
+		if seen[next] == 2 {
+			fmt.Println("Found at minute: ", i)
+			seenTwice = strings.Split(next, ",")
+			break
+		}
+	}
+
+	var rating = calculateBiodiversityRating(seenTwice)
+
+	fmt.Println("Tile:")
+	fmt.Println(strings.Join(seenTwice, "\n"))
+	fmt.Println("Biodiversity rating:", rating)
+
+	// Failed with 8243663
+
 }
