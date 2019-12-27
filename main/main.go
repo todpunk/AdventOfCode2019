@@ -1891,25 +1891,59 @@ func day17() {
 
 }
 
-type Route struct {
-	routeName  string
-	pos        gridPoint
-	length     int
-	prevPoints map[string]bool
+type point2d struct {
+	x int
+	y int
 }
 
-type keyDoorPath struct {
-	startPos     gridPoint
-	endPos       gridPoint
-	length       int
-	startName    string
-	endName      string
-	doorsBetween []string
-	keysBetween  []string
+type point3d struct {
+	x int
+	y int
+	z int
+}
+
+type dungeonState struct {
+	pos   point3d
+	steps int
+}
+
+func search(dungeon map[point2d]bool, doors, keys map[point2d]int, start point2d, allkeys, haveKeys int) int {
+	directions := []point2d{{0, -1}, {1, 0}, {0, 1}, {-1, 0}}
+	queue, visited := []dungeonState{dungeonState{pos: point3d{start.x, start.y, haveKeys}}}, make(map[point3d]bool)
+	var st dungeonState
+	for {
+		st, queue = queue[0], queue[1:]
+
+		if st.pos.z&allkeys == allkeys {
+			return st.steps
+		}
+
+		visited[st.pos] = true
+
+		for _, d := range directions {
+			next := point3d{st.pos.x + d.x, st.pos.y + d.y, st.pos.z}
+
+			if !dungeon[point2d{next.x, next.y}] || visited[next] {
+				continue
+			}
+
+			door, ok := doors[point2d{next.x, next.y}]
+			if ok && next.z&door != door {
+				continue
+			}
+
+			key, ok := keys[point2d{next.x, next.y}]
+			if ok {
+				next.z |= key
+			}
+
+			queue = append(queue, dungeonState{pos: next, steps: st.steps + 1})
+		}
+	}
 }
 
 func day18() {
-	// Completely shamefully stolen from https://github.com/JacobPuff/AoC-2019-Golang/
+	// Based heavily off of stevotvr's version, a BFS  that keeps track of best total distance
 	var dungeonMap = []string{
 		"#################################################################################",
 		"#.....#...............#.....#.A.#.......#.....#e..............#.....#...........#",
@@ -1994,197 +2028,85 @@ func day18() {
 		"#################################################################################",
 	}
 
+	var dungeon, doors, keys = make(map[point2d]bool), make(map[point2d]int), make(map[point2d]int)
+	var start = point2d{0,0}
+	var allkeys int
 
-	var mazeMap = make(map[gridPoint]droidTile)
-	var doors = make(map[string]bool)
-	var keys = make(map[string]bool)
-	var x, y int64
-	var currentPos gridPoint
-
-	for _, line := range dungeonMap {
-		for index := range line {
-			if line[index] == '@' {
-				// mazeMap[Point{x - 1, y}] = droidTile{"#", false}
-				// mazeMap[Point{x + 1, y}] = droidTile{"#", false}
-				currentPos = gridPoint{x, y}
-			}
-			if line[index] != '#' && line[index] != '@' && line[index] != '.' {
-				stringChar := string(line[index])
-				if stringChar == strings.ToUpper(stringChar) {
-					doors[stringChar] = true
-				}
-				if stringChar == strings.ToLower(stringChar) {
-					keys[stringChar] = true
-				}
-			}
-
-			if mazeMap[gridPoint{x, y}].tile == "" {
-				mazeMap[gridPoint{x, y}] = droidTile{string(line[index]), false}
-			}
-			x++
-		}
-		x = 0
-		y++
-	}
-
-	var listOfRoutes []Route
-	var startRoute Route
-	var shortestRouteSteps = math.MaxInt64
-	// Set start route data
-	startRoute.pos = currentPos
-	startRoute.length = 0
-	startRoute.routeName = "@"
-	startRoute.prevPoints = make(map[string]bool)
-	startRoute.prevPoints["@"] = true
-	// Make a map to memoize things
-	prevPathsCalculated := make(map[string]keyDoorPath)
-
-	listOfRoutes = getRoutesFromStartRoute(startRoute, prevPathsCalculated, mazeMap, doors, keys, listOfRoutes)
-
-	for _, route := range listOfRoutes {
-		if route.length < shortestRouteSteps {
-			shortestRouteSteps = route.length
-		}
-	}
-	fmt.Println("Shortest path for part 1:", shortestRouteSteps)
-	fmt.Println("Key len:", len(keys))
-}
-
-func canReachKey(route Route, path keyDoorPath) bool {
-	var canReachKey bool = true
-	for _, door := range path.doorsBetween {
-		if !route.prevPoints[strings.ToLower(door)] {
-			canReachKey = false
-		}
-	}
-	return canReachKey
-}
-
-func getRoutesFromStartRoute(fromRoute Route, prevPathsCalculated map[string]keyDoorPath, mazeMap map[gridPoint]droidTile, doors map[string]bool, keys map[string]bool, listOfRoutes []Route) []Route {
-	// Get all keys that the route doesnt have,
-	// check if we've done calculation to that key from the route position before
-	//
-	// if we have, and we have all the keys for the doors,
-	//    add key and length to route
-	// if we haven't
-	//    search for that key in a breadth first search,
-	//    cache result, and add it to the route
-
-	var route Route = Route{"", gridPoint{0, 0}, 0, make(map[string]bool)}
-
-	for key := range keys {
-		//Make new route instead of reference
-		route.pos = fromRoute.pos
-		route.length = fromRoute.length
-		route.routeName = fromRoute.routeName
-		// Copy prevPoints so its not a reference
-		for key, val := range fromRoute.prevPoints {
-			route.prevPoints[key] = val
-		}
-		if !route.prevPoints[key] {
-
-			cacheString := fmt.Sprintf("({x: %d, y: %d}, key: %s)", route.pos.x, route.pos.y, key)
-			// I used length to see if a value existed because it has a default of 0,
-			// and its easy to understand that there shouldnt be a length of 0.
-			var pathToKey keyDoorPath
-			if prevPathsCalculated[cacheString].length != 0 {
-				pathToKey = prevPathsCalculated[cacheString]
-			} else {
-				pathToKey = getDistanceAndDoorsBetweenPointAndKey(route.pos, key, mazeMap, doors, keys)
-				prevPathsCalculated[cacheString] = pathToKey
-			}
-			// fmt.Println("KEY NUM:", keyNum, "KEY:", key)
-			// keyNum++
-
-			if canReachKey(route, pathToKey) {
-				route.routeName += key
-				for _, keyName := range pathToKey.keysBetween {
-					route.prevPoints[keyName] = true
-				}
-				// route.prevPoints[key] = true
-				route.length += pathToKey.length
-				route.pos = pathToKey.endPos
-				newListOfRoutes := getRoutesFromStartRoute(route, prevPathsCalculated, mazeMap, doors, keys, listOfRoutes)
-				listOfRoutes = append(listOfRoutes, newListOfRoutes...)
-			}
-
-		}
-	}
-
-	var hasAllKeys = true
-	for key := range keys {
-		if route.prevPoints[key] == false {
-			hasAllKeys = false
-		}
-	}
-	if hasAllKeys {
-		fmt.Println("finished route", fromRoute.routeName, len(route.prevPoints), route.length)
-		listOfRoutes = append(listOfRoutes, fromRoute)
-	}
-	return listOfRoutes
-}
-
-func getDistanceAndDoorsBetweenPointAndKey(startPoint gridPoint, key string, mazeMap map[gridPoint]droidTile, doors map[string]bool, keys map[string]bool) keyDoorPath {
-	availableDirs := []int64{NORTH, SOUTH, WEST, EAST}
-	var canGoToQueue []gridPoint
-	// var localDist int = 0
-	canGoToQueue = append(canGoToQueue, startPoint)
-	var mazeCopy = make(map[gridPoint]droidTile)
-	// Copy mazeMap
-	for key, val := range mazeMap {
-		mazeCopy[key] = val
-	}
-	// Use point and return parent of that point
-	var breadthFirstSearchTree = make(map[gridPoint]gridPoint)
-	//Set start point to traveled so its parent isnt overwritten
-	mazeCopy[startPoint] = droidTile{mazeCopy[startPoint].tile, true}
-	breadthFirstSearchTree[startPoint] = gridPoint{-1, -1}
-
-	var keyDoorPathToReturn keyDoorPath
-	keyDoorPathToReturn.startPos = startPoint
-	keyDoorPathToReturn.startName = mazeCopy[startPoint].tile
-	keyDoorPathToReturn.endName = key
-
-	for len(canGoToQueue) != 0 {
-		var currentQueue = make([]gridPoint, len(canGoToQueue))
-		copy(currentQueue, canGoToQueue)
-		canGoToQueue = []gridPoint{}
-		for _, point := range currentQueue {
-			for _, dir := range availableDirs {
-				dirPoint := getPointForDirection(dir, point)
-				dirTile := mazeCopy[dirPoint]
-				currentParent := point
-
-				if dirTile.tile == key {
-					//fmt.Println("found key", dirTile.tile)
-					keyDoorPathToReturn.endPos = dirPoint
-					for currentParent != (gridPoint{-1, -1}) {
-						parentTile := mazeCopy[currentParent]
-						if doors[mazeCopy[currentParent].tile] {
-							keyDoorPathToReturn.doorsBetween = append(keyDoorPathToReturn.doorsBetween, parentTile.tile)
-						}
-						// Add all keys along the way
-						if keys[mazeCopy[currentParent].tile] {
-							keyDoorPathToReturn.keysBetween = append(keyDoorPathToReturn.keysBetween, parentTile.tile)
-						}
-						keyDoorPathToReturn.length++
-						currentParent = breadthFirstSearchTree[currentParent]
+	fmt.Println("Starting dungeon parsing")
+	for y, line := range dungeonMap {
+		for x, c := range line {
+			if c != '#' {
+				dungeon[point2d{x, y}] = true
+				if c == '@' {
+					start = point2d{x, y}
+				} else if c != '.' {
+					if c < 'a' {
+						k := 1 << (c - 'A')
+						doors[point2d{x, y}] = k
+						allkeys |= k
+					} else {
+						k := 1 << (c - 'a')
+						keys[point2d{x, y}] = k
+						allkeys |= k
 					}
-					return keyDoorPathToReturn
-				}
-
-				if dirTile.tile != "#" && dirTile.tile != "" && !dirTile.traveled {
-					breadthFirstSearchTree[dirPoint] = currentParent
-					dirTile.traveled = true
-					mazeCopy[dirPoint] = dirTile
-					canGoToQueue = append(canGoToQueue, dirPoint)
 				}
 			}
 		}
 	}
-	//It shouldn't get to this point if a key exists
-	keyDoorPathToReturn.endName = "ERROR"
-	return keyDoorPathToReturn
+
+	fmt.Println("Dungeon parsed, finding best path distance")
+	var bestRouteDist = search(dungeon, doors, keys, start, allkeys, 0)
+
+	fmt.Println("Found best distance, beginning bifurcated dungeon")
+	directions := []point2d{{0, -1}, {1, 0}, {0, 1}, {-1, 0}}
+	dungeon[start] = false
+	for _, d := range directions {
+		dungeon[point2d{start.x + d.x, start.y + d.y}] = false
+	}
+
+	fmt.Println("Beginning first quadrant of bifurcated dungeon")
+	total := 0
+	haveKeys := allkeys
+	for x := 0; x < start.x; x++ {
+		for y := 0; y < start.y; y++ {
+			haveKeys ^= keys[point2d{x, y}]
+		}
+	}
+
+	total += search(dungeon, doors, keys, point2d{start.x - 1, start.y - 1}, allkeys, haveKeys)
+
+	fmt.Println("Beginning second quadrant of bifurcated dungeon")
+	haveKeys = allkeys
+	for x := start.x + 1; x <= start.x*2; x++ {
+		for y := 0; y < start.y; y++ {
+			haveKeys ^= keys[point2d{x, y}]
+		}
+	}
+
+	total += search(dungeon, doors, keys, point2d{start.x + 1, start.y - 1}, allkeys, haveKeys)
+
+	fmt.Println("Beginning third quadrant of bifurcated dungeon")
+	haveKeys = allkeys
+	for x := start.x + 1; x <= start.x*2; x++ {
+		for y := start.y + 1; y <= start.y*2; y++ {
+			haveKeys ^= keys[point2d{x, y}]
+		}
+	}
+
+	total += search(dungeon, doors, keys, point2d{start.x + 1, start.y + 1}, allkeys, haveKeys)
+
+	fmt.Println("Beginning fourth quadrant of bifurcated dungeon")
+	haveKeys = allkeys
+	for x := 0; x < start.x; x++ {
+		for y := start.y + 1; y <= start.y*2; y++ {
+			haveKeys ^= keys[point2d{x, y}]
+		}
+	}
+
+	total += search(dungeon, doors, keys, point2d{start.x - 1, start.y + 1}, allkeys, haveKeys)
+
+	fmt.Println("Best distance", bestRouteDist)
+	fmt.Println("Total", total)
 }
 
 func tractorBeamDroneIOHandlers(x, y int64) (inputGatherer, outputHandler, func() bool) {
@@ -2547,7 +2469,7 @@ func springDroidIOHandlers(shouldRun bool) (inputGatherer, outputHandler) {
 			// E lines up jumps that are off a little bit,
 			// and H prevents E from killing the bot
 			// AND D J could be moved above the E H lines,
-			// because the droid has memory from its last state,
+			// because the droid has memory from its last dungeonState,
 			// but this is easier to read.
 			O, R, SPACE, A, SPACE, T, NEWLINE,
 			A, N, D, SPACE, B, SPACE, T, NEWLINE,
